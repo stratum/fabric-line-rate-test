@@ -26,8 +26,7 @@ $ make build-image
 To start a test, use:
 
 ```bash
-$ make run-test SERVER_ADDR=[server address] STREAM=[strem profile]
+$ make run-test SERVER_ADDR=[server address] TEST=[strem profile]
 ```
 
-You can find the stream profiles located at [trex/streams](trex/streams) directory.
-
+You can find the test profiles located at [trex/test](trex/test) directory.
