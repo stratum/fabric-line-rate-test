@@ -5,8 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 Fabric Line Rate Test
 ====
 
-![pycodestyle](https://github.com/stratum/fabric-line-rate-test/workflows/Check%20Python%20code%20style/badge.svg?branch=master)
-![License check](https://github.com/stratum/fabric-line-rate-test/workflows/Check%20license/badge.svg)
+![Python Code Style](https://github.com/stratum/fabric-line-rate-test/workflows/Python%20Code%20Style/badge.svg)
+![REUSE](https://github.com/stratum/fabric-line-rate-test/workflows/REUSE/badge.svg)
+![Container Image](https://github.com/stratum/fabric-line-rate-test/workflows/Container%20Image/badge.svg)
 
 Scripts and configs to run line rate test
 
