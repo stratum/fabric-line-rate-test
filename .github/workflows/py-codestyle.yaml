@@ -13,7 +13,7 @@ on:
 jobs:
   check_python_coding_style:
     name: Checks Python codes with pycodestyle tool
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: weibullguy/python-lint-plus@master

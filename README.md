@@ -7,6 +7,7 @@ Fabric Line Rate Test
 
 ![pycodestyle](https://github.com/stratum/fabric-line-rate-test/workflows/Check%20Python%20code%20style/badge.svg?branch=master)
 ![License check](https://github.com/stratum/fabric-line-rate-test/workflows/Check%20license/badge.svg)
+
 Scripts and configs to run line rate test
 
 # Requirements:
