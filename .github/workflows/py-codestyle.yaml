@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Check Python code style
+name: Python Code Style
 on:
   push:
     branches:
