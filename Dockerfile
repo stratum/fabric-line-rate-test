@@ -13,7 +13,6 @@ RUN wget https://github.com/cisco-system-traffic-generator/trex-core/archive/v${
     cp -r /trex-core-${TREX_VER}/scripts/automation/trex_control_plane/interactive/* ${PYTHONPATH} && \
     cp -r /trex-core-${TREX_VER}/scripts/external_libs/* ${PYTHONPATH}
 
-
 FROM python:3.8.6-alpine as runtime
 # Dependency for ZeroMQ
 RUN apk add libstdc++ dumb-init
