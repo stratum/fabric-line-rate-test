@@ -27,6 +27,6 @@ RUN apk add libstdc++ dumb-init
 ENV TREX_EXT_LIBS=${TREX_EXT_LIBS}
 ENV PYTHONPATH=/workspace/trex-scripts:${TREX_EXT_LIBS}:${TREX_LIBS}
 COPY --from=builder /output /
-COPY . /workspace
+
 WORKDIR /workspace
 ENTRYPOINT [ "dumb-init", "python3", "-m", "control" ]
