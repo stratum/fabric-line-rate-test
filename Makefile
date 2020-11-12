@@ -30,3 +30,29 @@ dev:
 						-v $(current_dir)/trex-scripts:/workspace/trex-scripts \
 						--entrypoint sh \
 						$(IMAGE)
+
+stratum-replay:
+	docker run --rm \
+		-v $(current_dir)/stratum-replay/$(TEST):/configs \
+		-w /configs \
+		stratumproject/stratum-replay \
+		-grpc-addr=$(SWITCH_ADDR):9339 \
+		-pipeline-cfg /configs/pipeline_cfg.pb.txt \
+		/configs/p4_writes.pb.txt
+
+onos-start:
+	docker-compose -f tost/docker-compose.yaml up -d
+
+onos-stop:
+	docker-compose -f tost/docker-compose.yaml down -t 0
+
+onos-logs:
+	docker-compose -f tost/docker-compose.yaml logs -f
+
+onos-cli:
+	ssh -p 8101 karaf@127.0.0.1
+
+netcfg:
+	curl --fail -sSL --user onos:rocks --noproxy localhost \
+		-X POST -H 'Content-Type:application/json' \
+		http://localhost:8181/onos/v1/network/configuration -d@./tost/netcfg.json
