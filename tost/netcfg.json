@@ -1,0 +1,123 @@
+{
+  "devices": {
+    "device:leaf1": {
+      "segmentrouting": {
+        "ipv4NodeSid": 29,
+        "ipv4Loopback": "10.128.13.29",
+        "routerMac": "00:90:fb:71:64:8a",
+        "isEdgeRouter": true,
+        "adjacencySids": []
+      },
+      "basic": {
+        "name": "Leaf 1",
+        "managementAddress": "grpc://10.128.13.29:9339?device_id=1",
+        "driver": "stratum-tofino",
+        "pipeconf": "org.stratumproject.fabric-spgw-int.mavericks_sde_9_2_0",
+        "locType": "grid",
+        "gridX": 300,
+        "gridY": 600
+      }
+    }
+  },
+  "ports": {
+    "device:leaf1/272": {
+      "interfaces": [
+        {
+          "ips": [
+            "192.168.10.254/24"
+          ],
+          "vlan-untagged": 10,
+          "name": "29/0"
+        }
+      ]
+    },
+    "device:leaf1/280": {
+      "interfaces": [
+        {
+          "ips": [
+            "192.168.10.254/24"
+          ],
+          "vlan-untagged": 10,
+          "name": "30/0"
+        }
+      ]
+    },
+    "device:leaf1/256": {
+      "interfaces": [
+        {
+          "ips": [
+            "192.168.10.254/24"
+          ],
+          "vlan-untagged": 10,
+          "name": "31/0"
+        }
+      ]
+    },
+    "device:leaf1/264": {
+      "interfaces": [
+        {
+          "ips": [
+            "192.168.10.254/24"
+          ],
+          "vlan-untagged": 10,
+          "name": "32/0"
+        }
+      ]
+    }
+  },
+  "hosts": {
+    "00:00:00:00:00:01/None": {
+      "basic": {
+        "name": "Host-1",
+        "ips": [
+          "192.168.10.1"
+        ],
+        "locations": [
+          "device:leaf1/272"
+        ]
+      }
+    },
+    "00:00:00:00:00:02/None": {
+      "basic": {
+        "name": "Host-2",
+        "ips": [
+          "192.168.10.2"
+        ],
+        "locations": [
+          "device:leaf1/280"
+        ]
+      }
+    },
+    "00:00:00:00:00:03/None": {
+      "basic": {
+        "name": "Host-3",
+        "ips": [
+          "192.168.10.3"
+        ],
+        "locations": [
+          "device:leaf1/256"
+        ]
+      }
+    },
+    "00:00:00:00:00:04/None": {
+      "basic": {
+        "name": "Host-4 (INT collector)",
+        "ips": [
+          "192.168.10.4"
+        ],
+        "locations": [
+          "device:leaf1/264"
+        ]
+      }
+    }
+  },
+  "apps": {
+    "org.onosproject.inbandtelemetry": {
+      "report": {
+        "collectorIp": "192.168.10.4",
+        "collectorPort": 32766,
+        "minFlowHopLatencyChangeNs": 256
+      }
+    }
+  }
+}

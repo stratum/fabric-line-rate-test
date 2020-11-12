@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3"
+
+services:
+  tost:
+    image: registry.aetherproject.org/tost/tost:1.0.2-b4
+    pull_policy: always
+    hostname: tost
+    container_name: tost
+    ports:
+      - "8181:8181" # HTTP
+      - "8101:8101" # SSH (CLI)
+    environment:
+      - ONOS_APPS=gui,drivers.barefoot,drivers.stratum,netcfghostprovider,org.stratumproject.fabric-tna,segmentrouting,inbandtelemetry
