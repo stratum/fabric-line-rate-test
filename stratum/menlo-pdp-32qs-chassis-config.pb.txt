@@ -1,0 +1,59 @@
+
+description: "Chassis Config for Menlo PDP 32QS"
+chassis {
+  platform: PLT_BAREFOOT_TOFINO
+  name: "Edgecore Wedge100BF-32qs"
+}
+nodes {
+  id: 1
+  slot: 1
+  index: 1
+}
+singleton_ports {
+  id: 272
+  name: "29/0"
+  slot: 1
+  port: 29
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+    autoneg: TRI_STATE_FALSE
+  }
+  node: 1
+}
+singleton_ports {
+  id: 280
+  name: "30/0"
+  slot: 1
+  port: 30
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+    autoneg: TRI_STATE_FALSE
+  }
+  node: 1
+}
+singleton_ports {
+  id: 256
+  name: "31/0"
+  slot: 1
+  port: 31
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+    autoneg: TRI_STATE_FALSE
+  }
+  node: 1
+}
+singleton_ports {
+  id: 264
+  name: "32/1"
+  slot: 1
+  port: 32
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+    autoneg: TRI_STATE_FALSE
+  }
+  node: 1
+}
