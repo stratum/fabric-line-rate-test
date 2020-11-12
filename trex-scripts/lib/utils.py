@@ -15,7 +15,7 @@ def to_readable(src: int, unit: str = 'bps') -> str:
         A human readable string
     '''
     if src < 1000:
-        return '{} bps'.format(src)
+        return '{:.1f} {}'.format(src, unit)
     elif src < 1000_000:
         return '{:.1f} K{}'.format(src / 1000, unit)
     elif src < 1000_000_000:
