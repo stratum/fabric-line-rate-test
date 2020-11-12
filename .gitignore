@@ -4,3 +4,5 @@
 .venv
 .vscode
 __pycache__
+pipeline_cfg.pb.txt
+
