@@ -12,6 +12,7 @@ import time
 
 from trex.stl.api import *
 from trex_stf_lib.trex_client import *
+from trex.utils.parsing_opts import *
 
 TREX_FILES_DIR = '/tmp/trex_files/'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
@@ -19,7 +20,7 @@ DEFAULT_KILL_TIMEOUT = 10
 logging.basicConfig(format=LOG_FORMAT, level='INFO')
 
 
-def run_test(server_addr: str, test: str, duration: int) -> int:
+def run_test(server_addr: str, test: str, duration: int, mult: str) -> int:
     try:
         test_module = importlib.import_module('tests.{}'.format(test))
     except ModuleNotFoundError as e:
@@ -36,8 +37,8 @@ def run_test(server_addr: str, test: str, duration: int) -> int:
         logging.info('Resetting and clearing port...')
         stl_client.reset()  # Resets configs from all ports
         stl_client.clear_stats()  # Clear status from all ports
-        test = test_module.get_test(stl_client, duration)
-        logging.info("Running the test: %s...", test)
+        test = test_module.get_test(stl_client, duration, mult)
+        logging.info('Running the test: %s...', test)
         test.start()
     except STLError as e:
         logging.error('Got error from Trex server: %s', e)
@@ -65,6 +66,8 @@ def main() -> int:
                         action='store_true', default=False,
                         help='Force restart the Trex process ' +
                         'if there is one running.')
+    parser.add_argument('-m', '--mult', default='1', type=str,
+                        help=match_multiplier_help)
     parser.add_argument(
         'test', type=str, help='The test profile, which is the ' +
         'filename(without .py) in the test directory',
@@ -88,7 +91,7 @@ def main() -> int:
     trex_started = False
 
     try:
-        logging.info("Pushing Trex config %s to the server", args.trex_config)
+        logging.info('Pushing Trex config %s to the server', args.trex_config)
         if not trex_client.push_files(args.trex_config):
             logging.error('Unable to push %s to Trex server', args.trex_config)
             return 1
@@ -112,8 +115,6 @@ def main() -> int:
                               'to the server and kill it manually.')
                 return 1
 
-            trex_client.wait_until_kickoff_finish()
-
         if not trex_client.is_idle():
             logging.info('The Trex server process is running')
             logging.warning('A Trex server process is still running, ' +
@@ -127,7 +128,7 @@ def main() -> int:
         trex_started = True
 
         # Start the stateless traffic
-        run_test(args.server_addr, args.test, args.duration)
+        run_test(args.server_addr, args.test, args.duration, args.mult)
     except ConnectionRefusedError:
         logging.error('Unable to connect to server %s.\n' +
                       'Did you start the Trex daemon?',
