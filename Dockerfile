@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 ARG TREX_VER=2.85
 ARG TREX_EXT_LIBS=/external_libs
-ARG TREX_LIBS=/trex-python
+ARG TREX_LIBS=/trex_python
 
 FROM alpine:3.12.1 as builder
 ARG TREX_VER
