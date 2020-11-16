@@ -30,14 +30,14 @@ class IntSingleFlow(StatelessTest):
         stream = STLStream(packet=STLPktBuilder(pkt=pkt, vm=[]), mode=STLTXCont())
 
         logging.info("Setting up ports")
-        self.stl_client.add_streams(stream, ports=SENDER_PORTS)
+        self.client.add_streams(stream, ports=SENDER_PORTS)
 
         pkt_capture_limit = self.duration * 3
         logging.info(
             "Start capturing first %s RX packet from INT collector", pkt_capture_limit
         )
-        self.stl_client.set_service_mode(ports=INT_COLLECTPR_PORTS, enabled=True)
-        capture = self.stl_client.start_capture(
+        self.client.set_service_mode(ports=INT_COLLECTPR_PORTS, enabled=True)
+        capture = self.client.start_capture(
             rx_ports=INT_COLLECTPR_PORTS,
             limit=pkt_capture_limit,
             bpf_filter="udp and dst port 32766",
@@ -46,15 +46,13 @@ class IntSingleFlow(StatelessTest):
         logging.info(
             "Starting traffic, duration: %ds, throughput: %s", self.duration, self.mult
         )
-        self.stl_client.start(
-            ports=SENDER_PORTS, mult=self.mult, duration=self.duration
-        )
+        self.client.start(ports=SENDER_PORTS, mult=self.mult, duration=self.duration)
         logging.info("Waiting until all traffic stop")
-        self.stl_client.wait_on_traffic(ports=SENDER_PORTS)
+        self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
         output = []
-        self.stl_client.stop_capture(capture["id"], output)
+        self.client.stop_capture(capture["id"], output)
 
         num_pkts = len(output)
         logging.info("%d packet captured", num_pkts)
@@ -64,7 +62,7 @@ class IntSingleFlow(StatelessTest):
         ]
 
         analyze_int_reports(int_report_pkts, self.duration)
-        list_port_status(self.stl_client.get_stats())
+        list_port_status(self.client.get_stats())
 
 
 def get_test(
