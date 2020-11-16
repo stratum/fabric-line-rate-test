@@ -4,7 +4,7 @@
 from trex_stl_lib.api import STLClient
 
 
-class BaseTest:
+class StatelessTest:
     def __init__(
         self, stl_client: STLClient, duration: int = 1, mult: str = "1pps"
     ) -> None:

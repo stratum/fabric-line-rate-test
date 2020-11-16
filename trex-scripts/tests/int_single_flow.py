@@ -3,9 +3,9 @@
 
 import logging
 
-from lib.base_test import BaseTest
-from lib.utils import get_readable_port_stats
-from lib.xnt import IntL45ReportFixed, get_readable_int_report_str
+from lib.base_test import StatelessTest
+from lib.utils import list_port_status
+from lib.xnt import analyze_int_reports
 from scapy.layers.all import IP, UDP, Ether
 from trex_stl_lib.api import STLClient, STLPktBuilder, STLStream, STLTXCont
 
@@ -17,7 +17,7 @@ SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
 
 
-class IntSingleFlow(BaseTest):
+class IntSingleFlow(StatelessTest):
     # A simple test that sends UDP traffic from 192.168.10.1 to 192.168.10.3
 
     def start(self) -> None:
@@ -59,31 +59,12 @@ class IntSingleFlow(BaseTest):
         num_pkts = len(output)
         logging.info("%d packet captured", num_pkts)
 
-        # We should receive 1 packet per second, and allows +/- 1 packet.
-        if num_pkts not in range(self.duration - 1, self.duration + 2):
-            logging.error(
-                "Expected to receive %d +/- 1 pakcets, but got %d",
-                self.duration,
-                num_pkts,
-            )
+        int_report_pkts = [
+            Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
+        ]
 
-        prev_seq_no = None
-        for pkt_info in output:
-            pkt = Ether(pkt_info["binary"])
-            logging.info("%s", get_readable_int_report_str(pkt))
-
-            if IntL45ReportFixed in pkt:
-                seq_no = pkt[IntL45ReportFixed].seq_no
-                if prev_seq_no and seq_no != (prev_seq_no + 1):
-                    logging.error(
-                        "Expect to get seq no %d, but got %d", prev_seq_no + 1, seq_no
-                    )
-                prev_seq_no = seq_no
-
-        port_stats = self.stl_client.get_stats()
-        for port in [0, 1, 2, 3]:
-            readable_stats = get_readable_port_stats(port_stats[port])
-            logging.info("States from port {}: \n{}".format(port, readable_stats))
+        analyze_int_reports(int_report_pkts, self.duration)
+        list_port_status(self.stl_client.get_stats())
 
 
 def get_test(

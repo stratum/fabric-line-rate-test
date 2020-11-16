@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
+import logging
 
 
 def to_readable(src: int, unit: str = "bps") -> str:
@@ -77,3 +78,16 @@ def get_readable_port_stats(port_stats: str) -> str:
         to_readable(rx_bps_L1),
         rx_util,
     )
+
+
+def list_port_status(port_status: dict) -> None:
+    """
+    List all port status
+
+    :parameters:
+    port_status: dict
+        Port status from Trex client API
+    """
+    for port in [0, 1, 2, 3]:
+        readable_stats = get_readable_port_stats(port_status[port])
+        logging.info("States from port {}: \n{}".format(port, readable_stats))

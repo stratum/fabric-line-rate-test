@@ -29,8 +29,8 @@ logging.basicConfig(format=LOG_FORMAT, level="INFO")
 def run_test(server_addr: str, test: str, duration: int, mult: str) -> int:
     try:
         test_module = importlib.import_module("tests.{}".format(test))
-    except ModuleNotFoundError:
-        logging.error("Cannot find %s in tests directory", test)
+    except ModuleNotFoundError as e:
+        logging.error("Got error when loading the test %s: %s", test, e)
         return 1
 
     stl_client = STLClient(server=server_addr)

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
+import logging
+
 from scapy.fields import BitField, ShortField, XByteField, XIntField, XShortField
 from scapy.layers.inet import UDP
 from scapy.layers.l2 import Ether
@@ -123,3 +125,36 @@ def get_readable_int_report_str(pkt: Packet) -> str:
         eg_tstamp,
         latency,
     )
+
+
+def analyze_int_reports(report_packets: list, expected_report_num: int) -> None:
+    """
+    Analyze INT reposts.
+
+    :paraeteres:
+    report_packets: list
+        List of INT report packet.
+    expected_report_num: int
+        The expected number of reports, should be 1 per flow per second if there for
+        normal case.
+    """
+
+    if len(report_packets) not in range(
+        expected_report_num - 1, expected_report_num + 2
+    ):
+        logging.error(
+            "Expected to receive %d +/- 1 pakcets, but got %d",
+            expected_report_num,
+            len(report_packets),
+        )
+
+    prev_seq_no = None
+    for pkt in report_packets:
+        logging.info("%s", get_readable_int_report_str(pkt))
+        if IntL45ReportFixed in pkt:
+            seq_no = pkt[IntL45ReportFixed].seq_no
+            if prev_seq_no and seq_no != (prev_seq_no + 1):
+                logging.error(
+                    "Expect to get seq no %d, but got %d", prev_seq_no + 1, seq_no
+                )
+            prev_seq_no = seq_no
