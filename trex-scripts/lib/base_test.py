@@ -1,11 +1,15 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
+from abc import ABC, abstractclassmethod, abstractmethod
 
-from trex_stl_lib.api import STLClient
 from trex.astf.api import ASTFClient
+from trex_stl_lib.api import STLClient
 
 
-class BaseTest:
+class BaseTest(ABC):
+    duration: int
+    mult: str
+
     def __init__(self, duration: int = 1, mult: str = "1pps") -> None:
         """
         Create and initialize a base test
@@ -21,8 +25,21 @@ class BaseTest:
         self.duration = duration
         self.mult = mult
 
+    @abstractmethod
+    def start(self) -> None:
+        """
+        Start the traffic
+        """
+        pass
+
+    @abstractclassmethod
+    def test_type(cls) -> str:
+        return ""
+
 
 class StatelessTest(BaseTest):
+    client: STLClient
+
     def __init__(
         self, client: STLClient, duration: int = 1, mult: str = "1pps"
     ) -> None:
@@ -42,14 +59,14 @@ class StatelessTest(BaseTest):
         super().__init__(duration, mult)
         self.client = client
 
-    def start(self) -> None:
-        """
-        Start the traffic
-        """
-        pass
+    @classmethod
+    def test_type(cls) -> str:
+        return "stateless"
 
 
 class StatefulTest(BaseTest):
+    client: ASTFClient
+
     def __init__(
         self, client: ASTFClient, duration: int = 1, mult: str = "1pps"
     ) -> None:
@@ -69,8 +86,6 @@ class StatefulTest(BaseTest):
         super().__init__(duration, mult)
         self.client = client
 
-    def start(self) -> None:
-        """
-        Start the traffic
-        """
-        pass
+    @classmethod
+    def test_type(cls) -> str:
+        return "stateful"

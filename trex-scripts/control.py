@@ -5,11 +5,15 @@
 
 import argparse
 import importlib
+import inspect
 import logging
 import os
 import sys
 import time
+import typing
 
+from lib.base_test import BaseTest
+from trex.astf.api import ASTFClient
 from trex.stl.api import STLClient, STLError
 from trex.utils.parsing_opts import match_multiplier_help
 from trex_stf_lib.trex_client import (
@@ -26,24 +30,66 @@ DEFAULT_KILL_TIMEOUT = 10
 logging.basicConfig(format=LOG_FORMAT, level="INFO")
 
 
-def run_test(server_addr: str, test: str, duration: int, mult: str) -> int:
+def get_test_class(test_name: str) -> typing.Type[BaseTest]:
+    """
+    Get test class from test module
+
+    :parameters:
+    test_name: str
+        The test name, which is the python module name in the `tests` directory.
+
+    :returns:
+        The test class
+    """
     try:
-        test_module = importlib.import_module("tests.{}".format(test))
+        m = importlib.import_module("tests.{}".format(test_name))
+        test_classes = [
+            mem[1]
+            for mem in inspect.getmembers(m)
+            if inspect.isclass(mem[1])
+            and issubclass(mem[1], BaseTest)
+            and not inspect.isabstract(mem[1])
+        ]
+        if not test_classes:
+            logging.error("Unable to find any test classes from %s module", test_name)
+            return None
+
+        if len(test_classes) > 1:
+            logging.warning(
+                "Found more than one test class in %s module, will use %s",
+                test_name,
+                test_classes[0],
+            )
+        return test_classes[0]
+
     except ModuleNotFoundError as e:
-        logging.error("Got error when loading the test %s: %s", test, e)
+        logging.error("Got error when loading the test %s: %s", test_name, e)
+        return None
+
+
+def run_test(
+    server_addr: str, test_class: typing.Type[BaseTest], duration: int, mult: str
+) -> int:
+    test_type = test_class.test_type()
+    if test_type == "stateless":
+        client = STLClient(server=server_addr)
+    elif test_type == "stateful":
+        client = ASTFClient(server=server_addr)
+    else:
+        # Should noe happened since we already checked from the caller
+        logging.error("Unknown test type %s", test_type)
         return 1
 
-    stl_client = STLClient(server=server_addr)
-
+    test = test_class(client, duration, mult)
     try:
         logging.info("Connecting to Trex server...")
-        stl_client.connect()
+        client.connect()
         logging.info("Acquaring ports...")
-        stl_client.acquire()
+        client.acquire()
         logging.info("Resetting and clearing port...")
-        stl_client.reset()  # Resets configs from all ports
-        stl_client.clear_stats()  # Clear status from all ports
-        test = test_module.get_test(stl_client, duration, mult)
+        client.reset()  # Resets configs from all ports
+        client.clear_stats()  # Clear status from all ports
+
         logging.info("Running the test: %s...", test)
         test.start()
     except STLError as e:
@@ -51,12 +97,12 @@ def run_test(server_addr: str, test: str, duration: int, mult: str) -> int:
         return 1
     finally:
         logging.info("Cleaning up Trex client")
-        stl_client.stop()
-        stl_client.release()
-        stl_client.disconnect()
+        client.stop()
+        client.release()
+        client.disconnect()
 
 
-def main() -> int:
+def parse_command_args() -> None:
     parser = argparse.ArgumentParser(description="Linerate test control plane")
     parser.add_argument(
         "--server-addr",
@@ -85,7 +131,7 @@ def main() -> int:
         help="Force restart the Trex process " + "if there is one running.",
     )
     parser.add_argument(
-        "-m", "--mult", default="1", type=str, help=match_multiplier_help
+        "-m", "--mult", default="1pps", type=str, help=match_multiplier_help
     )
     parser.add_argument(
         "test",
@@ -95,7 +141,11 @@ def main() -> int:
         default="simple_tcp",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_command_args()
 
     # Set up the Trex server
     if not os.path.exists(args.trex_config):
@@ -145,14 +195,29 @@ def main() -> int:
             )
             return 1
 
-        logging.info("Starting Trex with stateless mode")
-        # Not checking the return value from this
-        # call since it always return True
-        trex_client.start_stateless(cfg=trex_config_file_on_server)
-        trex_started = True
+        test_class = get_test_class(args.test)
+
+        if not test_class:
+            logging.error("Unable to get test class for test %s", args.test)
+            return 1
+
+        test_type = test_class.test_type()
+
+        logging.info("Starting Trex with %s mode", test_class.test_type())
+        if test_type == "stateless":
+            # Not checking the return value from this
+            # call since it always return True
+            trex_client.start_stateless(cfg=trex_config_file_on_server)
+            trex_started = True
+        elif test_type == "stateful":
+            trex_client.start_astf(cfg=trex_config_file_on_server)
+            trex_started = True
+        else:
+            logging.error("Unkonwon test type %s", test_type)
+            return 1
 
         # Start the stateless traffic
-        run_test(args.server_addr, args.test, args.duration, args.mult)
+        run_test(args.server_addr, test_class, args.duration, args.mult)
     except ConnectionRefusedError:
         logging.error(
             "Unable to connect to server %s.\n" + "Did you start the Trex daemon?",

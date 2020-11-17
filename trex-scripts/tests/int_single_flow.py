@@ -7,7 +7,7 @@ from lib.base_test import StatelessTest
 from lib.utils import list_port_status
 from lib.xnt import analyze_int_reports
 from scapy.layers.all import IP, UDP, Ether
-from trex_stl_lib.api import STLClient, STLPktBuilder, STLStream, STLTXCont
+from trex_stl_lib.api import STLPktBuilder, STLStream, STLTXCont
 
 SOURCE_MAC = "00:00:00:00:00:01"
 DEST_MAC = "00:00:00:00:00:03"
@@ -63,9 +63,3 @@ class IntSingleFlow(StatelessTest):
 
         analyze_int_reports(int_report_pkts, self.duration)
         list_port_status(self.client.get_stats())
-
-
-def get_test(
-    stl_client: STLClient, duration: int = 1, mult: str = "10gbpsl1"
-) -> IntSingleFlow:
-    return IntSingleFlow(stl_client, duration, mult)
