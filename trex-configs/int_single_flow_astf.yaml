@@ -5,29 +5,29 @@
   port_limit: 4
   interfaces: ['3b:00.1', '3b:00.0', '86:00.1', '86:00.0']
   port_bandwidth_gb: 40
-  c: 16
+  c: 8
   port_info:
     - src_mac: 00:00:00:00:00:01
-      dest_mac: 00:90:fb:71:64:8a
+      dst_mac: 00:90:fb:71:64:8a
     - src_mac: 00:00:00:00:00:02
-      dest_mac: 00:90:fb:71:64:8a
+      dst_mac: 00:90:fb:71:64:8a
     - src_mac: 00:00:00:00:00:03
-      dest_mac: 00:90:fb:71:64:8a
+      dst_mac: 00:90:fb:71:64:8a
     - src_mac: 00:00:00:00:00:04
-      dest_mac: 00:90:fb:71:64:8a
+      dst_mac: 00:90:fb:71:64:8a
   memory:
-    mbuf_64     : 16384
-    mbuf_128    : 16384
-    mbuf_256    : 16384
-    mbuf_512    : 16384
-    mbuf_1024   : 16384
-    mbuf_2048   : 16384
-    traffic_mbuf_64     : 16384
-    traffic_mbuf_128    : 16384
-    traffic_mbuf_256    : 16384
-    traffic_mbuf_512    : 16384
-    traffic_mbuf_1024   : 16384
-    traffic_mbuf_2048   : 16384
+    mbuf_64     : 16380
+    mbuf_128    : 8190
+    mbuf_256    : 8190
+    mbuf_512    : 8190
+    mbuf_1024   : 8190
+    mbuf_2048   : 4096
+    traffic_mbuf_64     : 16380
+    traffic_mbuf_128    : 8190
+    traffic_mbuf_256    : 8190
+    traffic_mbuf_512    : 8190
+    traffic_mbuf_1024   : 8190
+    traffic_mbuf_2048   : 4096
     dp_flows    : 1048576
   platform:
     master_thread_id: 0
