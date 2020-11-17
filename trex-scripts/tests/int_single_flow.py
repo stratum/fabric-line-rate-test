@@ -4,29 +4,45 @@
 import logging
 
 from lib.base_test import StatelessTest
+from lib.gtpu import GTPU
 from lib.utils import list_port_status
 from lib.xnt import analyze_int_reports
-from scapy.layers.all import IP, UDP, Ether
+from scapy.layers.all import IP, TCP, UDP, Ether
 from trex_stl_lib.api import STLPktBuilder, STLStream, STLTXCont
 
 SOURCE_MAC = "00:00:00:00:00:01"
 DEST_MAC = "00:00:00:00:00:03"
 SOURCE_IP = "192.168.10.1"
-DEST_IP = "192.168.10.3"
+DEST_IP = "192.168.30.1"
+INNER_SRC_IP = "10.240.0.1"
+INNER_DEST_IP = "8.8.8.8"
 SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
 
 
 class IntSingleFlow(StatelessTest):
-    # A simple test that sends UDP traffic from 192.168.10.1 to 192.168.10.3
+    def get_sample_packet(self):
+        pkt_type = self.test_args.get("pkt-type", "tcp")
+        if pkt_type == "udp":
+            return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / TCP() / ("*" * 1500)
+        elif pkt_type == "gtpu-udp":
+            return (
+                Ether()
+                / IP(src=SOURCE_IP, dst=DEST_IP)
+                / UDP()
+                / GTPU()
+                / IP()
+                / UDP()
+                / ("*" * 1500)
+            )
+        else:
+            return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / UDP() / ("*" * 1500)
 
     def start(self) -> None:
-        pkt = (
-            Ether(src=SOURCE_MAC, dst=DEST_MAC)
-            / IP(src=SOURCE_IP, dst=DEST_IP)
-            / UDP(sport=1234, dport=4567)
-            / ("*" * 1500)
-        )
+        pkt = self.get_sample_packet()
+        if not pkt:
+            return 1
+
         stream = STLStream(packet=STLPktBuilder(pkt=pkt, vm=[]), mode=STLTXCont())
 
         logging.info("Setting up ports")
@@ -51,6 +67,7 @@ class IntSingleFlow(StatelessTest):
         self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
+
         output = []
         self.client.stop_capture(capture["id"], output)
 
