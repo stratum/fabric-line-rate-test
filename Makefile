@@ -34,7 +34,7 @@ run-test:
 	@docker run --rm \
 						-v $(current_dir)/trex-configs:/workspace/trex-configs \
 						-v $(current_dir)/trex-scripts:/workspace/trex-scripts \
-						-v tmp:/tmp \
+						-v $(current_dir)/tmp:/tmp \
 						$(IMAGE) \
 						--server $(SERVER_ADDR) \
 						--trex-config /workspace/trex-configs/$(TEST).yaml \
@@ -45,7 +45,7 @@ dev:
 						-it \
 						-v $(current_dir)/trex-configs:/workspace/trex-configs \
 						-v $(current_dir)/trex-scripts:/workspace/trex-scripts \
-						-v tmp:/tmp \
+						-v $(current_dir)/tmp:/tmp \
 						--entrypoint sh \
 						$(IMAGE)
 
