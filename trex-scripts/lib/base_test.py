@@ -9,8 +9,11 @@ from trex_stl_lib.api import STLClient
 class BaseTest(ABC):
     duration: int
     mult: str
+    test_args: dict
 
-    def __init__(self, duration: int = 1, mult: str = "1pps") -> None:
+    def __init__(
+        self, duration: int = 1, mult: str = "1pps", test_args: dict = {}
+    ) -> None:
         """
         Create and initialize a base test
 
@@ -24,6 +27,7 @@ class BaseTest(ABC):
         """
         self.duration = duration
         self.mult = mult
+        self.test_args = test_args
 
     @abstractmethod
     def start(self) -> None:
@@ -34,14 +38,18 @@ class BaseTest(ABC):
 
     @abstractclassmethod
     def test_type(cls) -> str:
-        return ""
+        return None
 
 
 class StatelessTest(BaseTest):
     client: STLClient
 
     def __init__(
-        self, client: STLClient, duration: int = 1, mult: str = "1pps"
+        self,
+        client: STLClient,
+        duration: int = 1,
+        mult: str = "1pps",
+        test_args: dict = {},
     ) -> None:
         """
         Create and initialize a test
@@ -56,7 +64,7 @@ class StatelessTest(BaseTest):
                 Multiplier in a form of pps, bps, or line util in %.
                 Default is 1pps.
         """
-        super().__init__(duration, mult)
+        super().__init__(duration, mult, test_args)
         self.client = client
 
     @classmethod
@@ -68,7 +76,11 @@ class StatefulTest(BaseTest):
     client: ASTFClient
 
     def __init__(
-        self, client: ASTFClient, duration: int = 1, mult: str = "1pps"
+        self,
+        client: ASTFClient,
+        duration: int = 1,
+        mult: str = "1pps",
+        test_args: dict = {},
     ) -> None:
         """
         Create and initialize a test
@@ -83,7 +95,7 @@ class StatefulTest(BaseTest):
                 Multiplier in a form of pps, bps, or line util in %.
                 Default is 1pps.
         """
-        super().__init__(duration, mult)
+        super().__init__(duration, mult, test_args)
         self.client = client
 
     @classmethod

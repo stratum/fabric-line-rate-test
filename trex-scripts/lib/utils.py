@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
+import argparse
 import logging
 
 
@@ -91,3 +92,28 @@ def list_port_status(port_status: dict) -> None:
     for port in [0, 1, 2, 3]:
         readable_stats = get_readable_port_stats(port_status[port])
         logging.info("States from port {}: \n{}".format(port, readable_stats))
+
+
+class ParseExtendArgAction(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        if nargs:
+            raise ValueError("Action does not support nargs")
+        super().__init__(option_strings, dest, nargs, **kwargs)
+
+    def __call__(self, parser, namespace, value, option_string=None):
+        # extending original dictionary
+        if option_string != "-t" and option_string != "--test-args":
+            raise KeyError("Inlvaud option string {}".format(option_string))
+
+        if not namespace.test_args:
+            namespace.test_args = {}
+
+        if not value:
+            raise ValueError("Value of {} cannot be empty".format(option_string))
+
+        kv = value.split("=")
+        if len(kv) != 2:
+            raise ValueError("Invalid value: {}".format(value))
+        key = value.split("=")[0]
+        val = value.split("=")[1]
+        namespace.test_args[key] = val

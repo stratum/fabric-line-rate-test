@@ -11,8 +11,10 @@ import os
 import sys
 import time
 import typing
+from os import name
 
 from lib.base_test import BaseTest
+from lib.utils import ParseExtendArgAction
 from trex.astf.api import ASTFClient
 from trex.stl.api import STLClient, STLError
 from trex.utils.parsing_opts import match_multiplier_help
@@ -68,7 +70,11 @@ def get_test_class(test_name: str) -> typing.Type[BaseTest]:
 
 
 def run_test(
-    server_addr: str, test_class: typing.Type[BaseTest], duration: int, mult: str
+    server_addr: str,
+    test_class: typing.Type[BaseTest],
+    duration: int,
+    mult: str,
+    test_args: dict,
 ) -> int:
     test_type = test_class.test_type()
     if test_type == "stateless":
@@ -80,7 +86,7 @@ def run_test(
         logging.error("Unknown test type %s", test_type)
         return 1
 
-    test = test_class(client, duration, mult)
+    test = test_class(client, duration, mult, test_args)
     try:
         logging.info("Connecting to Trex server...")
         client.connect()
@@ -103,6 +109,7 @@ def run_test(
 
 
 def parse_command_args() -> None:
+
     parser = argparse.ArgumentParser(description="Linerate test control plane")
     parser.add_argument(
         "--server-addr",
@@ -132,6 +139,14 @@ def parse_command_args() -> None:
     )
     parser.add_argument(
         "-m", "--mult", default="1pps", type=str, help=match_multiplier_help
+    )
+    parser.add_argument(
+        "-t",
+        "--test_args",
+        action=ParseExtendArgAction,
+        help="Pass additional arguments to the test "
+        + "E.g., -a KEY1=VAL1 -a KEY2=VAL2",
+        default={},
     )
     parser.add_argument(
         "test",
@@ -217,7 +232,7 @@ def main() -> int:
             return 1
 
         # Start the stateless traffic
-        run_test(args.server_addr, test_class, args.duration, args.mult)
+        run_test(args.server_addr, test_class, args.duration, args.mult, args.test_args)
     except ConnectionRefusedError:
         logging.error(
             "Unable to connect to server %s.\n" + "Did you start the Trex daemon?",
