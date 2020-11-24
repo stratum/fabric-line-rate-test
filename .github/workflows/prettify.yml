@@ -27,8 +27,6 @@ jobs:
         run: black --config .github/linters/.python-black .
       - name: Refotmat code with isort
         run: isort --sp .github/linters/.isort.cfg .
-      - name: Check if the code is modified
-        run: git update-index --refresh || echo "create_pr=1" >> $GITHUB_ENV
       - name: Create pull request
         uses: peter-evans/create-pull-request@v3
         with:
@@ -37,4 +35,3 @@ jobs:
           labels: prettify-bot
           branch: prettify-bot
           delete-branch: true
-        if: env.create_pr == 1
