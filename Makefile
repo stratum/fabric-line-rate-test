@@ -10,7 +10,6 @@ SWITCH_ADDR?=10.128.13.29
 TEST?=int_single_flow
 TREX_CONFIG:=$(current_dir)/trex-configs
 TREX_SCRIPTS:=$(current_dir)/trex-scripts
-EXTRA_TEST_ARGS?=
 
 default:
 	@echo "Nothing here"
@@ -29,16 +28,6 @@ set-up-dev-env: .venv
 	@cp -r trex_python/* .venv/lib/python3.8/site-packages/
 	@rm -rf trex_python
 	@docker rm set_up_dev_env
-
-run-test:
-	@docker run --rm \
-						-v $(current_dir)/trex-configs:/workspace/trex-configs \
-						-v $(current_dir)/trex-scripts:/workspace/trex-scripts \
-						-v $(current_dir)/tmp:/tmp \
-						$(IMAGE) \
-						--server $(SERVER_ADDR) \
-						--trex-config /workspace/trex-configs/$(TEST).yaml \
-						$(EXTRA_TEST_ARGS) $(TEST)
 
 dev:
 	@docker run --rm \

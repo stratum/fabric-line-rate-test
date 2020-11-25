@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import glob
 import importlib
 import inspect
 import logging
@@ -11,13 +12,11 @@ import os
 import sys
 import time
 import typing
-from os import name
+from os.path import basename, dirname, isfile, join
 
 from lib.base_test import BaseTest
-from lib.utils import ParseExtendArgAction
 from trex.astf.api import ASTFClient
 from trex.stl.api import STLClient, STLError
-from trex.utils.parsing_opts import match_multiplier_help
 from trex_stf_lib.trex_client import (
     CTRexClient,
     ProtocolError,
@@ -53,7 +52,7 @@ def get_test_class(test_name: str) -> typing.Type[BaseTest]:
             and not inspect.isabstract(mem[1])
         ]
         if not test_classes:
-            logging.error("Unable to find any test classes from %s module", test_name)
+            logging.warning("Unable to find any test classes from %s module", test_name)
             return None
 
         if len(test_classes) > 1:
@@ -69,47 +68,9 @@ def get_test_class(test_name: str) -> typing.Type[BaseTest]:
         return None
 
 
-def run_test(
-    server_addr: str,
-    test_class: typing.Type[BaseTest],
-    duration: int,
-    mult: str,
-    test_args: dict,
-) -> int:
-    test_type = test_class.test_type()
-    if test_type == "stateless":
-        client = STLClient(server=server_addr)
-    elif test_type == "stateful":
-        client = ASTFClient(server=server_addr)
-    else:
-        # Should noe happened since we already checked from the caller
-        logging.error("Unknown test type %s", test_type)
-        return 1
-
-    test = test_class(client, duration, mult, test_args)
-    try:
-        logging.info("Connecting to Trex server...")
-        client.connect()
-        logging.info("Acquaring ports...")
-        client.acquire()
-        logging.info("Resetting and clearing port...")
-        client.reset()  # Resets configs from all ports
-        client.clear_stats()  # Clear status from all ports
-
-        logging.info("Running the test: %s...", test)
-        test.start()
-    except STLError as e:
-        logging.error("Got error from Trex server: %s", e)
-        return 1
-    finally:
-        logging.info("Cleaning up Trex client")
-        client.stop()
-        client.release()
-        client.disconnect()
-
-
-def parse_command_args() -> None:
-
+def main() -> int:
+    # Initialize the argument parser and subparsers
+    # First we initialize general arguments.
     parser = argparse.ArgumentParser(description="Linerate test control plane")
     parser.add_argument(
         "--server-addr",
@@ -118,7 +79,6 @@ def parse_command_args() -> None:
         default="127.0.0.1",
         required=False,
     )
-    parser.add_argument("--duration", type=int, help="Test duration", default=5)
     parser.add_argument(
         "--trex-config",
         type=str,
@@ -137,30 +97,29 @@ def parse_command_args() -> None:
         default=False,
         help="Force restart the Trex process " + "if there is one running.",
     )
-    parser.add_argument(
-        "-m", "--mult", default="1pps", type=str, help=match_multiplier_help
-    )
-    parser.add_argument(
-        "-t",
-        "--test_args",
-        action=ParseExtendArgAction,
-        help="Pass additional arguments to the test "
-        + "E.g., -a KEY1=VAL1 -a KEY2=VAL2",
-        default={},
-    )
-    parser.add_argument(
-        "test",
-        type=str,
+
+    # Second, we initialize subparsers from all test scripts
+    subparsers = parser.add_subparsers(
+        dest="test",
         help="The test profile, which is the "
         + "filename(without .py) in the test directory",
-        default="simple_tcp",
     )
+    test_py_list = glob.glob(join(dirname(__file__), "tests", "*.py"))
+    test_list = [
+        basename(f)[:-3]
+        for f in test_py_list
+        if isfile(f) and not f.endswith("__init__.py")
+    ]
 
-    return parser.parse_args()
+    for test in test_list:
+        test_class = get_test_class(test)
+        if not test_class:
+            continue
+        test_parser = subparsers.add_parser(test)
+        test_class.setup_subparser(test_parser)
 
-
-def main() -> int:
-    args = parse_command_args()
+    # Finally, we get the arguments
+    args = parser.parse_args()
 
     # Set up the Trex server
     if not os.path.exists(args.trex_config):
@@ -173,24 +132,24 @@ def main() -> int:
 
     trex_config_file_on_server = TREX_FILES_DIR + os.path.basename(args.trex_config)
 
-    trex_client = CTRexClient(args.server_addr)
+    trex_daemon_client = CTRexClient(args.server_addr)
     trex_started = False
 
     try:
         logging.info("Pushing Trex config %s to the server", args.trex_config)
-        if not trex_client.push_files(args.trex_config):
+        if not trex_daemon_client.push_files(args.trex_config):
             logging.error("Unable to push %s to Trex server", args.trex_config)
             return 1
 
         if args.force_restart:
             logging.info("Killing all Trexes... with meteorite... Boom!")
-            trex_client.kill_all_trexes()
+            trex_daemon_client.kill_all_trexes()
 
             # Wait until Trex enter the Idle state
             start_time = time.time()
             success = False
             while time.time() - start_time < DEFAULT_KILL_TIMEOUT:
-                if trex_client.is_idle():
+                if trex_daemon_client.is_idle():
                     success = True
                     break
                 time.sleep(1)
@@ -202,7 +161,7 @@ def main() -> int:
                 )
                 return 1
 
-        if not trex_client.is_idle():
+        if not trex_daemon_client.is_idle():
             logging.info("The Trex server process is running")
             logging.warning(
                 "A Trex server process is still running, "
@@ -217,22 +176,49 @@ def main() -> int:
             return 1
 
         test_type = test_class.test_type()
-
         logging.info("Starting Trex with %s mode", test_class.test_type())
-        if test_type == "stateless":
-            # Not checking the return value from this
-            # call since it always return True
-            trex_client.start_stateless(cfg=trex_config_file_on_server)
-            trex_started = True
-        elif test_type == "stateful":
-            trex_client.start_astf(cfg=trex_config_file_on_server)
-            trex_started = True
-        else:
+        try:
+            start_trex_function = getattr(
+                trex_daemon_client, "start_{}".format(test_type)
+            )
+        except AttributeError:
             logging.error("Unkonwon test type %s", test_type)
             return 1
 
-        # Start the stateless traffic
-        run_test(args.server_addr, test_class, args.duration, args.mult, args.test_args)
+        # Not checking the return value from this
+        # call since it always return True
+        start_trex_function(cfg=trex_config_file_on_server)
+        trex_started = True
+
+        # Start the test
+        if test_type == "stateless":
+            trex_client = STLClient(server=args.server_addr)
+        elif test_type == "astf":
+            trex_client = ASTFClient(server=args.server_addr)
+        else:
+            logging.error("Unknown test type %s", test_type)
+            return 1
+
+        test = test_class(trex_client)
+        try:
+            logging.info("Connecting to Trex server...")
+            trex_client.connect()
+            logging.info("Acquaring ports...")
+            trex_client.acquire()
+            logging.info("Resetting and clearing port...")
+            trex_client.reset()  # Resets configs from all ports
+            trex_client.clear_stats()  # Clear status from all ports
+
+            logging.info("Running the test: %s...", test)
+            test.start(args)
+        except STLError as e:
+            logging.error("Got error from Trex server: %s", e)
+            return 1
+        finally:
+            logging.info("Cleaning up Trex client")
+            trex_client.stop()
+            trex_client.release()
+            trex_client.disconnect()
     except ConnectionRefusedError:
         logging.error(
             "Unable to connect to server %s.\n" + "Did you start the Trex daemon?",
@@ -254,7 +240,7 @@ def main() -> int:
     finally:
         if trex_started and not args.keep_running:
             logging.info("Stopping Trex server")
-            trex_client.stop_trex()
+            trex_daemon_client.stop_trex()
 
 
 if __name__ == "__main__":
