@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
 
-set -xe
+set -e
 
 function help() {
   echo "Usage $0 -h -s [server IP address] [test name] [test params]"
@@ -24,7 +24,7 @@ while (( "$#" )); do
       help
       exit 0
       ;;
-    -*|--*|--*=*)
+    -*)
       echo "Unkonwon flag $1"
       help
       exit 1
@@ -33,7 +33,7 @@ while (( "$#" )); do
       # Test and test parameters
       TEST=$1
       shift 1
-      TEST_FLAGS=$@
+      TEST_FLAGS=$*
       break
   esac
 done
@@ -48,12 +48,13 @@ if [ -z "$TEST" ]; then
   exit 1
 fi
 
+# shellcheck disable=SC2086
 docker run --rm \
-           -v ${DIR}/trex-configs:/workspace/trex-configs \
-           -v ${DIR}/trex-scripts:/workspace/trex-scripts \
-           -v ${DIR}/tmp:/tmp \
+           -v "${DIR}/trex-configs:/workspace/trex-configs" \
+           -v "${DIR}/trex-scripts:/workspace/trex-scripts" \
+           -v "${DIR}/tmp:/tmp" \
            -w /workspace \
-           ${IMAGE} \
-           --server ${SERVER_ADDR} \
-           --trex-config /workspace/trex-configs/${TEST}.yaml \
+           "${IMAGE}" \
+           --server "${SERVER_ADDR}" \
+           --trex-config "/workspace/trex-configs/${TEST}.yaml" \
            ${TEST} ${TEST_FLAGS}
