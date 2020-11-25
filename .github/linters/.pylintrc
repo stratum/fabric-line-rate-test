@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
-# SPDX-License-Identifier: Apache-2.0
-[MESSAGES CONTROL]
-disable = C0330, C0326, F405
-
-[format]
-max-line-length = 88

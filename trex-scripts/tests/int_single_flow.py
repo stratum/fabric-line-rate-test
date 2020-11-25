@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from argparse import ArgumentParser
 
 from lib.base_test import StatelessTest
 from lib.gtpu import GTPU
@@ -21,8 +22,15 @@ INT_COLLECTPR_PORTS = [3]
 
 
 class IntSingleFlow(StatelessTest):
-    def get_sample_packet(self):
-        pkt_type = self.test_args.get("pkt-type", "tcp")
+    @classmethod
+    def setup_subparser(cls, parser: ArgumentParser) -> None:
+        parser.add_argument("--duration", type=int, help="Test duration", default=5)
+        parser.add_argument(
+            "--mult", type=str, help="Traffic multiplier", default="1pps"
+        )
+        parser.add_argument("--pkt-type", type=str, help="Packet type", default="tcp")
+
+    def get_sample_packet(self, pkt_type):
         if pkt_type == "udp":
             return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / TCP() / ("*" * 1500)
         elif pkt_type == "gtpu-udp":
@@ -38,8 +46,8 @@ class IntSingleFlow(StatelessTest):
         else:
             return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / UDP() / ("*" * 1500)
 
-    def start(self) -> None:
-        pkt = self.get_sample_packet()
+    def start(self, args) -> None:
+        pkt = self.get_sample_packet(args.pkt_type)
         if not pkt:
             return 1
 
@@ -48,7 +56,7 @@ class IntSingleFlow(StatelessTest):
         logging.info("Setting up ports")
         self.client.add_streams(stream, ports=SENDER_PORTS)
 
-        pkt_capture_limit = self.duration * 3
+        pkt_capture_limit = args.duration * 3
         logging.info(
             "Start capturing first %s RX packet from INT collector", pkt_capture_limit
         )
@@ -60,9 +68,9 @@ class IntSingleFlow(StatelessTest):
         )
 
         logging.info(
-            "Starting traffic, duration: %ds, throughput: %s", self.duration, self.mult
+            "Starting traffic, duration: %ds, throughput: %s", args.duration, args.mult
         )
-        self.client.start(ports=SENDER_PORTS, mult=self.mult, duration=self.duration)
+        self.client.start(ports=SENDER_PORTS, mult=args.mult, duration=args.duration)
         logging.info("Waiting until all traffic stop")
         self.client.wait_on_traffic(ports=SENDER_PORTS)
 
@@ -78,5 +86,5 @@ class IntSingleFlow(StatelessTest):
             Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
         ]
 
-        analyze_int_reports(int_report_pkts, self.duration)
+        analyze_int_reports(int_report_pkts, args.duration)
         list_port_status(self.client.get_stats())

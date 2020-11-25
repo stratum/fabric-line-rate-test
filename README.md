@@ -116,18 +116,15 @@ For INT test, remember to add INT watch list rules via [ONOS web UI](onos-ui).
 To run a test, use following command:
 
 ```bash
-make run-test SERVER_ADDR="10.128.13.27" TEST="int_single_flow" EXTRA_TEST_ARGS="--duration 10"
+./run-test.sh -h -s [server IP address] [test name] [test params]
 ```
 
-Parameters for this make target:
+Parameters for this script
 
-- SERVER_ADDR: the Trex daemon server address
-- TEST: the test profile name
-- EXTRA_TEST_ARGS: extra arguments that pass to the test
-  - --duration: the test duration, unit is second
-  - --force-restart: force restart the Trex server before new test
-  - --mult: Traffic multiplier, for example: 100kpps, 10gbps, 87%
-  - --keep-running: Keep Trex server running after test, the Trex server will stop after each test by default.
+- -s: the Trex daemon server address
+- -h: print help text
+- test name: the test in trex-script/tests/
+- test params: extra arguments that pass to the test
 
 ## Develop a new test
 
