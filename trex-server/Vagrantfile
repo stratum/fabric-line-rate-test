@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
+# SPDX-License-Identifier: Apache-2.0
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2004"
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.cpus = 32
+    libvirt.memory = 32768
+    libvirt.numa_nodes = [
+      {:cpus => "0-15", :memory => "16384"},
+      {:cpus => "16-31", :memory => "16384"},
+    ]
+
+    # PCI device passthrough
+    libvirt.pci :domain => '0x0000', :bus => '0x3b', :slot => '0x0a', :function => '0x0'
+    libvirt.pci :domain => '0x0000', :bus => '0x3b', :slot => '0x02', :function => '0x0'
+    libvirt.pci :domain => '0x0000', :bus => '0x86', :slot => '0x0a', :function => '0x0'
+    libvirt.pci :domain => '0x0000', :bus => '0x86', :slot => '0x02', :function => '0x0'
+  end
+  config.vm.hostname = "trex"
+  config.vm.provision "file", source: "./setup-trex.sh", destination: "setup-trex.sh"
+  config.vm.provision "shell", path: "setup-trex.sh"
+
+  [4500, 4501, 4507, 8090].each do |port|
+    config.vm.network "forwarded_port", guest: port, host: port
+    config.vm.network "forwarded_port", guest: port, host: port
+    config.vm.network "forwarded_port", guest: port, host: port
+  end
+end
