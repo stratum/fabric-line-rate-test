@@ -123,7 +123,7 @@ To run a test, use following command:
 
 ### Create Trex config for test (optional)
 
-We provides an example trex-config which includes 4 40G interfaces in the
+We provide an example trex-config which includes 4 40G interfaces in the
 [trex-configs](trex-configs) directory.
 
 Below is a sample Trex config
@@ -145,6 +145,7 @@ Create a new python script and place it to [trex-scripts/tests](trex-scripts/tes
 Here is an example of the test script:
 
 ```python
+from argparse import ArgumentParser
 from lib.base_test import BaseTest
 
 # Each test need to inherit the BaseTest
@@ -155,8 +156,8 @@ class SimpleTcpTest(BaseTest):
     # setup_subparser is an optional class method
     # You can implement this method if you want to add additional command line
     # parameters for your test.
-    # Those parameters will be parsed and be passed to the start method below as "args"
-    # argument.
+    # Those parameters will be parsed and be passed to the "start" method below as
+    # "args" argument.
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
         parser.add_argument(
