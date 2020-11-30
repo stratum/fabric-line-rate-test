@@ -4,57 +4,32 @@
 
 set -e
 
-function help() {
-  echo "Usage $0 -h -s [server IP address] [test name] [test params]"
-}
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-SERVER_ADDR="10.128.13.27"
-TEST=""
 IMAGE="fabric-line-rate-test:0.0.1"
-TEST_FLAGS=""
+TEST_ARGS=()
+
+mkdir -p "${DIR}/tmp"
 
 while (( "$#" )); do
   case "$1" in
-    -s)
-      SERVER_ADDR=$2
+    # Override the --trex-config parameter since we need to copy the actual config file
+    # to the container.
+    --trex-config)
+      # Copy the Trex config to tmp directory and use it
+      cp -f "$2" "${DIR}/tmp/"
+      TEST_ARGS+=("$1" "/tmp/$(basename "$2")")
       shift 2
       ;;
-    -h|--help)
-      help
-      exit 0
-      ;;
-    -*)
-      echo "Unkonwon flag $1"
-      help
-      exit 1
-      ;;
     *)
-      # Test and test parameters
-      TEST=$1
+      TEST_ARGS+=("$1")
       shift 1
-      TEST_FLAGS=$*
-      break
+      ;;
   esac
 done
 
-if [ -z "$SERVER_ADDR" ]; then
-  echo "Server address cannot be empty"
-  exit 1
-fi
-
-if [ -z "$TEST" ]; then
-  echo "Test name cannot be empty"
-  exit 1
-fi
-
-# shellcheck disable=SC2086
 docker run --rm \
-           -v "${DIR}/trex-configs:/workspace/trex-configs" \
            -v "${DIR}/trex-scripts:/workspace/trex-scripts" \
            -v "${DIR}/tmp:/tmp" \
            -w /workspace \
            "${IMAGE}" \
-           --server "${SERVER_ADDR}" \
-           --trex-config "/workspace/trex-configs/${TEST}.yaml" \
-           ${TEST} ${TEST_FLAGS}
+           "${TEST_ARGS[@]}"
