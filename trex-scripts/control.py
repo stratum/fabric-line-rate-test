@@ -103,6 +103,7 @@ def main() -> int:
         dest="test",
         help="The test profile, which is the "
         + "filename(without .py) in the test directory",
+        required=True,
     )
     test_py_list = glob.glob(join(dirname(__file__), "tests", "*.py"))
     test_list = [

@@ -15,7 +15,7 @@ Scripts and configs to run line rate test
 
 - make
 - Docker (Tested with 19.03.13 on MacOS)
-- Trex 2.85
+- Trex 2.85 (On the server)
 
 ## Repository structure
 
@@ -29,7 +29,7 @@ Scripts and configs to run line rate test
 └── trex-scripts
     ├── control.py ---> The entrypoint of test
     ├── lib ----------> Utility for test
-    └── tests --------> Test cases
+    └── tests --------> Test scripts
 ```
 
 ## Getting started
@@ -67,13 +67,13 @@ it also copies libraries from the container we just built in previous step.
 
 Some modern IDEs will detected the virtual environment and use it directly.
 
-### Run a test
+### Set up test environment
 
 To run a test, you need to:
 
 - Start Trex daemon server
 - Set up a Stratum device
-- Install flows to the device
+- Install flows to the device (via ONOS, P4Runtime shell, or stratum-replay tool)
 - Run test script and verify the result
 
 #### Start Trex daemon server
@@ -82,7 +82,7 @@ To start Trex daemon, run the following command on the server
 
 ```bash
 cd [trex root]/scripts
-sudo ./trex_daemon_server start
+sudo ./trex_daemon_server start[-live]
 ```
 
 Make sure the Trex service ports (4500, 4501, 4507, and 8090) are accessable from
@@ -111,29 +111,20 @@ like interface, port, device, flows.
 
 For INT test, remember to add INT watch list rules via [ONOS web UI](onos-ui).
 
-#### Run test script and verify the result
+### Run test script and verify the result
 
 To run a test, use following command:
 
 ```bash
-./run-test.sh -h -s [server IP address] [test name] [test params]
+./run-test.sh --server-addr [server address] --trex-config [trex-config] test-name ...
 ```
-
-Parameters for this script
-
-- -s: the Trex daemon server address
-- -h: print help text
-- test name: the test in trex-script/tests/
-- test params: extra arguments that pass to the test
 
 ## Develop a new test
 
-To create new test, you need to prepare files such as:
+### Create Trex config for test (optional)
 
-- The Trex config for the test
-- The script that creates traffic, capture packets and analyze it
-
-### Create Trex config for test
+We provides an example trex-config which includes 4 40G interfaces in the
+[trex-configs](trex-configs) directory.
 
 Below is a sample Trex config
 
@@ -151,8 +142,6 @@ For more information about Trex cofig, checkout the [Trex manual][trex-manual]
 
 Create a new python script and place it to [trex-scripts/tests](trex-scripts/tests)
 
-The script name should be same as the Trex config you created in the previous step.
-
 Here is an example of the test script:
 
 ```python
@@ -161,12 +150,30 @@ from lib.base_test import BaseTest
 # Each test need to inherit the BaseTest
 # The following member will be initialized:
 # self.stl_client: The Trex client for stateless server
-# self.duration: The test duration
-# self.mult: The traffic multiplier
 class SimpleTcpTest(BaseTest):
 
+    # setup_subparser is an optional class method
+    # You can implement this method if you want to add additional command line
+    # parameters for your test.
+    # Those parameters will be parsed and be passed to the start method below as "args"
+    # argument.
+    @classmethod
+    def setup_subparser(cls, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "--mult",
+            type=str,
+            help="Traffic multifier",
+            default="1pps"
+        )
+        parser.add_argument(
+            "--duration",
+            type=int,
+            help="Duration of the test",
+            default=5 # seconds
+        )
+
     # The entry point of a test
-    def start(self) -> None:
+    def start(self, args) -> None:
         # Here, you can create any type of traffic based on different packet type
         # for example, create a basic TCP by using scapy library
         pkt = Ether() / IP() / TCP() / "payload" * 10
@@ -176,7 +183,7 @@ class SimpleTcpTest(BaseTest):
 
         # Start sending traffic
         self.stl_client.add_streams(stream, ports=[0])
-        self.stl_client.start(ports=[0], mult=self.mult, duration=self.duration)
+        self.stl_client.start(ports=[0], mult=args.mult, duration=args.duration)
 
         # Wait until traffic stop
         self.stl_client.wait_on_traffic(ports=[0])

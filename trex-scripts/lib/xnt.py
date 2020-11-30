@@ -127,7 +127,7 @@ def get_readable_int_report_str(pkt: Packet) -> str:
     )
 
 
-def analyze_int_reports(report_packets: list, expected_report_num: int) -> None:
+def analyze_int_reports(report_packets: list, expected_report_num: int = -1) -> None:
     """
     Analyze INT reposts.
 
@@ -137,16 +137,18 @@ def analyze_int_reports(report_packets: list, expected_report_num: int) -> None:
     expected_report_num: int
         The expected number of reports, should be 1 per flow per second if there for
         normal case.
+        Don't check if this parameter is negtive
     """
 
-    if len(report_packets) not in range(
-        expected_report_num - 1, expected_report_num + 2
-    ):
-        logging.error(
-            "Expected to receive %d +/- 1 pakcets, but got %d",
-            expected_report_num,
-            len(report_packets),
-        )
+    if expected_report_num >= 0:
+        if len(report_packets) not in range(
+            expected_report_num - 1, expected_report_num + 2
+        ):
+            logging.error(
+                "Expected to receive %d +/- 1 pakcets, but got %d",
+                expected_report_num,
+                len(report_packets),
+            )
 
     prev_seq_no = None
     for pkt in report_packets:
