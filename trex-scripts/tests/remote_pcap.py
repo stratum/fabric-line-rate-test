@@ -21,14 +21,14 @@ class RemotePcap(StatelessTest):
             "--remote-pcap-file-dir",
             type=str,
             help="The directory which stores pcap files on the remove server.",
-            default="/"
+            default="/",
         )
         parser.add_argument(
             "--remote-pcap-files",
             type=str,
             help="The PCAP files which stores in remote server",
             required=True,
-            nargs="+"
+            nargs="+",
         )
         parser.add_argument(
             "--speed-multiplier", type=float, help="The speed multiplier", default=1
@@ -55,8 +55,7 @@ class RemotePcap(StatelessTest):
         )
 
         logging.info(
-            "Starting traffic, speedup: %f",
-            args.speed_multiplier,
+            "Starting traffic, speedup: %f", args.speed_multiplier,
         )
         for remote_pcap_file in args.remote_pcap_files:
             self.client.push_remote(
