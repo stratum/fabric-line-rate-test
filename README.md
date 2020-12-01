@@ -119,6 +119,13 @@ To run a test, use following command:
 ./run-test.sh --server-addr [server address] --trex-config [trex-config] test-name ...
 ```
 
+The `run-test.sh` script will start a base container which includes all necessary
+dependencies for the test script. It also mounts the `trex-script` and `tmp` dir from
+the host to the container.
+The `trex-script` will be mounted to the `/workspace/trex-script`, and `tmp`
+will be mounted to `/tmp`. In most of cases, some temporary files such as config or
+INT report pcap files will be shared via this directory.
+
 ## Develop a new test
 
 ### Create Trex config for test (optional)

@@ -3,6 +3,7 @@
 
 import logging
 from argparse import ArgumentParser
+from datetime import datetime
 
 from lib.base_test import StatelessTest
 from lib.gtpu import GTPU
@@ -29,6 +30,12 @@ class IntSingleFlow(StatelessTest):
             "--mult", type=str, help="Traffic multiplier", default="1pps"
         )
         parser.add_argument("--pkt-type", type=str, help="Packet type", default="tcp")
+        parser.add_argument(
+            "--print-reports",
+            action="store_true",
+            help="Print INT reports, default will store reports in the tmp directory",
+            default=False,
+        )
 
     def get_sample_packet(self, pkt_type):
         if pkt_type == "udp":
@@ -75,16 +82,22 @@ class IntSingleFlow(StatelessTest):
         self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
-
-        output = []
+        if args.print_reports:
+            output = []
+        else:
+            output = "/tmp/int-single-flow-{}-{}.pcap".format(
+                args.pkt_type, datetime.now().strftime("%Y%m%d-%H%M%S")
+            )
+            logging.info("INT report pcap file stored in {}".format(output))
         self.client.stop_capture(capture["id"], output)
 
-        num_pkts = len(output)
-        logging.info("%d packet captured", num_pkts)
+        if args.print_reports:
+            num_pkts = len(output)
+            logging.info("%d packet captured", num_pkts)
 
-        int_report_pkts = [
-            Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
-        ]
+            int_report_pkts = [
+                Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
+            ]
+            analyze_int_reports(int_report_pkts)
 
-        analyze_int_reports(int_report_pkts, args.duration)
         list_port_status(self.client.get_stats())
