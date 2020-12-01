@@ -14,7 +14,7 @@ SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
 
 
-class CaidaChicago(StatelessTest):
+class RemotePcap(StatelessTest):
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
         parser.add_argument(
@@ -30,7 +30,7 @@ class CaidaChicago(StatelessTest):
         parser.add_argument(
             "--print-reports",
             action="store_true",
-            help="Print INT reports, default will store reports in tmp directory",
+            help="Print INT reports, default will store reports in the tmp directory",
             default=False,
         )
 
@@ -62,13 +62,13 @@ class CaidaChicago(StatelessTest):
         self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
-
         if args.print_reports:
             output = []
         else:
             # [Original pcap name]-int-report.pcap
             filename = basename(args.remote_pcap_file)[:-5] + "-int-report.pcap"
             output = "/tmp/" + filename
+            logging.info("INT report pcap file stored in {}".format(output))
         self.client.stop_capture(capture["id"], output)
 
         if args.print_reports:
@@ -78,6 +78,6 @@ class CaidaChicago(StatelessTest):
             int_report_pkts = [
                 Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
             ]
-
             analyze_int_reports(int_report_pkts)
+
         list_port_status(self.client.get_stats())
