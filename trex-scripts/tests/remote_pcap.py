@@ -3,7 +3,7 @@
 
 import logging
 from argparse import ArgumentParser
-from os.path import basename
+from datetime import datetime
 
 from lib.base_test import StatelessTest
 from lib.utils import list_port_status
@@ -18,56 +18,63 @@ class RemotePcap(StatelessTest):
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
         parser.add_argument(
-            "--remote-pcap-file",
+            "--remote-pcap-file-dir",
             type=str,
-            help="The PCAP file which stores in remote server",
+            help="The directory which stores pcap files on the remove server.",
+            default="/"
+        )
+        parser.add_argument(
+            "--remote-pcap-files",
+            type=str,
+            help="The PCAP files which stores in remote server",
             required=True,
+            nargs="+"
         )
         parser.add_argument(
             "--speed-multiplier", type=float, help="The speed multiplier", default=1
         )
-        parser.add_argument("--duration", type=int, help="Test duration", default=5)
         parser.add_argument(
             "--print-reports",
             action="store_true",
             help="Print INT reports, default will store reports in the tmp directory",
             default=False,
         )
+        parser.add_argument(
+            "--capture-limit", type=int, default=1000, help="INT report capture limit"
+        )
 
     def start(self, args: dict) -> None:
-        pkt_capture_limit = args.duration * 10
         logging.info(
-            "Start capturing first %s RX packet from INT collector", pkt_capture_limit
+            "Start capturing first %s RX packet from INT collector", args.capture_limit
         )
         self.client.set_service_mode(ports=INT_COLLECTPR_PORTS, enabled=True)
         capture = self.client.start_capture(
             rx_ports=INT_COLLECTPR_PORTS,
-            limit=pkt_capture_limit,
+            limit=args.capture_limit,
             bpf_filter="udp and dst port 32766",
         )
 
         logging.info(
-            "Starting traffic, duration: %ds, speedup: %f",
-            args.duration,
+            "Starting traffic, speedup: %f",
             args.speed_multiplier,
         )
-        self.client.push_remote(
-            args.remote_pcap_file,
-            speedup=args.speed_multiplier,
-            duration=args.duration,
-            ports=SENDER_PORTS,
-        )
+        for remote_pcap_file in args.remote_pcap_files:
+            self.client.push_remote(
+                args.remote_pcap_file_dir + remote_pcap_file,
+                speedup=args.speed_multiplier,
+                ports=SENDER_PORTS,
+            )
 
-        logging.info("Waiting until all traffic stop")
-        self.client.wait_on_traffic(ports=SENDER_PORTS)
+            logging.info("Sending packets from file {}....".format(remote_pcap_file))
+            self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
         if args.print_reports:
             output = []
         else:
-            # [Original pcap name]-int-report.pcap
-            filename = basename(args.remote_pcap_file)[:-5] + "-int-report.pcap"
-            output = "/tmp/" + filename
+            output = "/tmp/remote-pcap-{}.pcap".format(
+                datetime.now().strftime("%Y%m%d-%H%M%S")
+            )
             logging.info("INT report pcap file stored in {}".format(output))
         self.client.stop_capture(capture["id"], output)
 
