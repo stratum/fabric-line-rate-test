@@ -33,6 +33,7 @@ class RemotePcap(StatelessTest):
         parser.add_argument(
             "--speed-multiplier", type=float, help="The speed multiplier", default=1
         )
+        parser.add_argument("--duration", type=float, help="Test duration", default=-1)
         parser.add_argument(
             "--print-reports",
             action="store_true",
@@ -58,9 +59,11 @@ class RemotePcap(StatelessTest):
             "Starting traffic, speedup: %f", args.speed_multiplier,
         )
         for remote_pcap_file in args.remote_pcap_files:
+            duration = args.duration / len(args.remote_pcap_files)
             self.client.push_remote(
                 args.remote_pcap_file_dir + remote_pcap_file,
                 speedup=args.speed_multiplier,
+                duration=duration,
                 ports=SENDER_PORTS,
             )
 
