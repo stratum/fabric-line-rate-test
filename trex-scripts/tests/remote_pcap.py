@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 from argparse import ArgumentParser
 from datetime import datetime
 
@@ -58,10 +59,12 @@ class RemotePcap(StatelessTest):
         logging.info(
             "Starting traffic, speedup: %f", args.speed_multiplier,
         )
-        for remote_pcap_file in args.remote_pcap_files:
+        duration = args.duration
+        if args.duration > 0:
             duration = args.duration / len(args.remote_pcap_files)
+        for remote_pcap_file in args.remote_pcap_files:
             self.client.push_remote(
-                args.remote_pcap_file_dir + remote_pcap_file,
+                args.remote_pcap_file_dir + os.path.sep + remote_pcap_file,
                 speedup=args.speed_multiplier,
                 duration=duration,
                 ports=SENDER_PORTS,
