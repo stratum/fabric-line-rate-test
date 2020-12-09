@@ -57,15 +57,4 @@ void DumpPacketHex(const pcpp::RawPacket& packet) {
   std::cout << std::endl;
 }
 
-size_t GetIntervals(const std::vector<uint64_t>& timestamps,
-                    std::vector<uint64_t>* intervals) {
-  if (!intervals || timestamps.size() <= 1) {
-    return 0;
-  }
-  for (size_t i = 1; i < timestamps.size(); i++) {
-    intervals->push_back(timestamps[i] - timestamps[i - 1]);
-  }
-  return timestamps.size() - 1;
-}
-
 #endif  // UTILS_H

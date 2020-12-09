@@ -73,36 +73,36 @@ int main(int argc, char* argv[]) {
     total_reports++;
     pcpp::Packet parsedPacket(&raw_packet);
 
-    pcpp::UdpLayer* udpLayer = parsedPacket.getLayerOfType<pcpp::UdpLayer>();
-    if (!udpLayer) {
+    pcpp::UdpLayer* udp_layer = parsedPacket.getLayerOfType<pcpp::UdpLayer>();
+    if (!udp_layer) {
       output << "No UDP header" << std::endl;
       skipped++;
       continue;
     }
-    uint16_t l4Dport = ntohs(udpLayer->getUdpHeader()->portDst);
+    uint16_t l4_dport = ntohs(udp_layer->getUdpHeader()->portDst);
 
-    if (l4Dport != 32766) {
-      output << "UDP port not 32766, " << l4Dport << std::endl;
+    if (l4_dport != 32766) {
+      output << "UDP port not 32766: " << l4_dport << std::endl;
       skipped++;
       continue;
     }
-    pcpp::PayloadLayer* payloadLayer =
+    pcpp::PayloadLayer* payload_layer =
         parsedPacket.getLayerOfType<pcpp::PayloadLayer>();
 
     // Parse INT Header
-    uint8_t* payload = payloadLayer->getPayload();
-    size_t payloadLen = payloadLayer->getPayloadLen();
+    uint8_t* payload = payload_layer->getPayload();
+    size_t payload_len = payload_layer->getPayloadLen();
 
-    std::shared_ptr<IntFixedHeader> intFixReport =
-        ParseIntFixedHeader(&payload, &payloadLen);
+    std::shared_ptr<IntFixedHeader> int_fix_report =
+        ParseIntFixedHeader(&payload, &payload_len);
 
-    if (!intFixReport) {
+    if (!int_fix_report) {
       output << "No fix report" << std::endl;
       skipped++;
       continue;
     }
 
-    uint32_t seq_no = ntohl(intFixReport->seq_no);
+    uint32_t seq_no = ntohl(int_fix_report->seq_no);
     if (prev_seq_no == 0) {
       prev_seq_no = seq_no;
     } else {
@@ -113,10 +113,10 @@ int main(int argc, char* argv[]) {
       prev_seq_no = seq_no;
     }
 
-    std::shared_ptr<IntLocalReport> intLocalReport =
-        ParseIntLocalReport(&payload, &payloadLen);
+    std::shared_ptr<IntLocalReport> int_local_report =
+        ParseIntLocalReport(&payload, &payload_len);
 
-    if (!intLocalReport) {
+    if (!int_local_report) {
       output << "No local report" << std::endl;
       skipped++;
       continue;
@@ -124,32 +124,29 @@ int main(int argc, char* argv[]) {
 
     // The inner packet
     struct timeval t = {0};
-    uint8_t* innerData = (uint8_t*)malloc(sizeof(uint8_t) * payloadLen);
-    std::memcpy(innerData, payload, payloadLen);
+    pcpp::RawPacket inner_packet(payload, payload_len, t, false,
+                                 pcpp::LINKTYPE_ETHERNET);
+    pcpp::Packet inner_parsed_packet(&inner_packet);
+    pcpp::IPv4Layer* inner_ipv4_layer =
+        inner_parsed_packet.getLayerOfType<pcpp::IPv4Layer>();
+    pcpp::TcpLayer* inner_tcp_layer =
+        inner_parsed_packet.getLayerOfType<pcpp::TcpLayer>();
+    pcpp::UdpLayer* inner_udp_layer =
+        inner_parsed_packet.getLayerOfType<pcpp::UdpLayer>();
 
-    pcpp::RawPacket innerPacket(innerData, payloadLen, t, false,
-                                pcpp::LINKTYPE_ETHERNET);
-    pcpp::Packet innerParsedPacket(&innerPacket);
-    pcpp::IPv4Layer* innerIpv4Layer =
-        innerParsedPacket.getLayerOfType<pcpp::IPv4Layer>();
-    pcpp::TcpLayer* innerTcpLayer =
-        innerParsedPacket.getLayerOfType<pcpp::TcpLayer>();
-    pcpp::UdpLayer* innerUdpLayer =
-        innerParsedPacket.getLayerOfType<pcpp::UdpLayer>();
-
-    if (innerIpv4Layer) {
-      pcpp::iphdr* iph = innerIpv4Layer->getIPv4Header();
-      uint32_t inner_src = innerIpv4Layer->getSrcIpAddress().toInt();
-      uint32_t inner_dst = innerIpv4Layer->getDstIpAddress().toInt();
-      uint8_t inner_proto = innerIpv4Layer->getIPv4Header()->protocol;
+    if (inner_ipv4_layer) {
+      pcpp::iphdr* iph = inner_ipv4_layer->getIPv4Header();
+      uint32_t inner_src = inner_ipv4_layer->getSrcIpAddress().toInt();
+      uint32_t inner_dst = inner_ipv4_layer->getDstIpAddress().toInt();
+      uint8_t inner_proto = inner_ipv4_layer->getIPv4Header()->protocol;
       uint16_t inner_l4_sport = 0;
       uint16_t inner_l4_dport = 0;
-      if (innerTcpLayer) {
-        inner_l4_sport = ntohs(innerTcpLayer->getTcpHeader()->portSrc);
-        inner_l4_dport = ntohs(innerTcpLayer->getTcpHeader()->portDst);
-      } else if (innerUdpLayer) {
-        inner_l4_sport = ntohs(innerUdpLayer->getUdpHeader()->portSrc);
-        inner_l4_dport = ntohs(innerUdpLayer->getUdpHeader()->portDst);
+      if (inner_tcp_layer) {
+        inner_l4_sport = ntohs(inner_tcp_layer->getTcpHeader()->portSrc);
+        inner_l4_dport = ntohs(inner_tcp_layer->getTcpHeader()->portDst);
+      } else if (inner_udp_layer) {
+        inner_l4_sport = ntohs(inner_udp_layer->getUdpHeader()->portSrc);
+        inner_l4_dport = ntohs(inner_udp_layer->getUdpHeader()->portDst);
       }
       V4Tuple f_tuple = {inner_src, inner_dst, inner_proto, inner_l4_sport,
                          inner_l4_dport};
@@ -167,8 +164,6 @@ int main(int argc, char* argv[]) {
       output << "No Inner IP header" << std::endl;
       skipped++;
     }
-
-    delete innerData;
   }
   reader->close();
   delete reader;
