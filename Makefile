@@ -3,7 +3,7 @@
 
 .PHONY: stratum-replay
 
-current_dir=$(shell pwd)
+current_dir=$(abspath $(dir $(MAKEFILE_LIST)))
 IMAGE:=fabric-line-rate-test:0.0.1
 SERVER_ADDR?=10.128.13.27
 SWITCH_ADDR?=10.128.13.29
@@ -64,7 +64,7 @@ onos-logs:
 	@docker-compose -f tost/docker-compose.yaml logs -f
 
 onos-cli: tmp/keys/id_rsa
-	@ssh -p 8101 -i tmp/keys/id_rsa $(USER)@127.0.0.1
+	@ssh -o StrictHostKeyChecking=no -p 8101 -i tmp/keys/id_rsa $(USER)@127.0.0.1
 
 onos-ui:
 	open http://127.0.0.1:8181/onos/ui

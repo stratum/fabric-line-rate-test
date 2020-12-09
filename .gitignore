@@ -5,3 +5,5 @@
 __pycache__
 pipeline_cfg.pb.txt
 tmp
+analysis/
+

@@ -74,6 +74,8 @@ class RemotePcap(StatelessTest):
             self.client.wait_on_traffic(ports=SENDER_PORTS)
 
         logging.info("Stop capturing packet from INT collector port")
+        list_port_status(self.client.get_stats())
+
         if args.print_reports:
             output = []
         else:
@@ -91,5 +93,3 @@ class RemotePcap(StatelessTest):
                 Ether(pkt_info["binary"]) for pkt_info in output if "binary" in pkt_info
             ]
             analyze_int_reports(int_report_pkts)
-
-        list_port_status(self.client.get_stats())
