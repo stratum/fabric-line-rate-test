@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
+#include <sstream>
 
 struct IntFixedHeader {
   uint8_t ver_proto;
@@ -15,7 +17,20 @@ struct IntFixedHeader {
   uint32_t seq_no;
   uint32_t ig_tstamp;
 
+  uint32_t SeqNo() {
+    return ntohl(seq_no);
+  }
+
+  uint32_t IgTime() {
+    return ntohl(ig_tstamp);
+  }
+
   IntFixedHeader() {}
+  std::string ToString() {
+    std::stringstream ss;
+    ss << "seq " << SeqNo() << ", ig time " << IgTime();
+    return ss.str();
+  }
 };
 
 struct IntLocalReport {
@@ -25,7 +40,35 @@ struct IntLocalReport {
   uint32_t queue_id_occupancy;
   uint32_t eg_tstamp;
 
-  IntLocalReport(){}
+  uint16_t IgPort() {
+    return ntohs(ig_port);
+  }
+
+  uint16_t EgPort() {
+    return ntohs(eg_port);
+  }
+
+  uint32_t QueueId() {
+    return (queue_id_occupancy >> 24);
+  }
+
+  uint32_t QueueOccupancy() {
+    return ntohl(queue_id_occupancy) >> 8;
+  }
+
+  uint32_t EgTime() {
+    return ntohl(eg_tstamp);
+  }
+
+  IntLocalReport() {}
+  std::string ToString() {
+    std::stringstream ss;
+    ss << "ig " << IgPort() << ", eg " << EgPort()
+       << ", qid " << QueueId()
+       << ", qoc "<< QueueOccupancy()
+       << ", eg time " << EgTime();
+    return ss.str();
+  }
 };
 
 std::shared_ptr<IntFixedHeader> ParseIntFixedHeader(uint8_t** data,
