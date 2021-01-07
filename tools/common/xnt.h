@@ -49,11 +49,11 @@ struct IntLocalReport {
   }
 
   uint32_t QueueId() {
-    return (queue_id_occupancy >> 24);
+    return queue_id_occupancy & 0xff;
   }
 
   uint32_t QueueOccupancy() {
-    return ntohl(queue_id_occupancy) >> 8;
+    return ntohl(queue_id_occupancy) & 0xffffff;
   }
 
   uint32_t EgTime() {

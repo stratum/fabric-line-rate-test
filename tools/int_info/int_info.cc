@@ -27,6 +27,7 @@
 
 DEFINE_string(i, "", "The input pcap file.");
 DEFINE_string(o, "", "The file that stores output, default will be stdout.");
+DEFINE_bool(summary, false, "Print summary only");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -46,13 +47,6 @@ int main(int argc, char* argv[]) {
     output << "Error opening input pcap file\n";
     return 1;
   }
-
-  // print file summary
-  output << "File summary:" << std::endl;
-  output << "~~~~~~~~~~~~~" << std::endl;
-  output << "   File name: " << reader->getFileName() << std::endl;
-  output << "   File size: " << reader->getFileSize() << " bytes" << std::endl;
-
   pcpp::PcapFileReaderDevice* pcap_reader =
       dynamic_cast<pcpp::PcapFileReaderDevice*>(reader);
 
@@ -63,12 +57,19 @@ int main(int argc, char* argv[]) {
   uint32_t total_reports = 0;
   uint32_t skipped = 0;
 
-  std::unordered_map<V4Tuple, uint64_t, V4TupleHasher> flow_reports; // <flow id, previous time>
-  std::vector<uint64_t> all_intervals;
+  std::unordered_set<V4Tuple, V4TupleHasher> five_tuples;
+  std::unordered_map<V4Tuple, std::shared_ptr<IntFixedHeader>, V4TupleHasher>
+      latest_flow_fixed_report;
+  std::unordered_map<V4Tuple, std::shared_ptr<IntLocalReport>, V4TupleHasher>
+      latest_flow_local_report;
+  std::unordered_set<V4Tuple, V4TupleHasher> flows_with_multiple_report;
+  std::vector<uint64_t> all_irgs;
   std::unordered_set<uint32_t> flow_hashes;
   pcpp::RawPacket raw_packet;
   uint32_t prev_seq_no = 0;
-  size_t flow_with_multiple_report = 0;
+  uint64_t timestamp_overflow = 0;
+  uint64_t other_short_irgs = 0;
+  uint64_t bad_irgs = 0;
   while (pcap_reader->getNextPacket(raw_packet)) {
     total_reports++;
     pcpp::Packet parsedPacket(&raw_packet);
@@ -102,7 +103,7 @@ int main(int argc, char* argv[]) {
       continue;
     }
 
-    uint32_t seq_no = ntohl(int_fix_report->seq_no);
+    uint32_t seq_no = int_fix_report->SeqNo();
     if (prev_seq_no == 0) {
       prev_seq_no = seq_no;
     } else {
@@ -135,7 +136,6 @@ int main(int argc, char* argv[]) {
         inner_parsed_packet.getLayerOfType<pcpp::UdpLayer>();
 
     if (inner_ipv4_layer) {
-      pcpp::iphdr* iph = inner_ipv4_layer->getIPv4Header();
       uint32_t inner_src = inner_ipv4_layer->getSrcIpAddress().toInt();
       uint32_t inner_dst = inner_ipv4_layer->getDstIpAddress().toInt();
       uint8_t inner_proto = inner_ipv4_layer->getIPv4Header()->protocol;
@@ -147,19 +147,37 @@ int main(int argc, char* argv[]) {
       } else if (inner_udp_layer) {
         inner_l4_sport = ntohs(inner_udp_layer->getUdpHeader()->portSrc);
         inner_l4_dport = ntohs(inner_udp_layer->getUdpHeader()->portDst);
+      } else {
+        // non_tcp_udp++;
       }
       V4Tuple f_tuple = {inner_src, inner_dst, inner_proto, inner_l4_sport,
                          inner_l4_dport};
+      five_tuples.insert(f_tuple);
       uint32_t crc32 = CRC::Calculate(&f_tuple, sizeof(V4Tuple), CRC::CRC_32());
       flow_hashes.insert(crc32);
-      timespec timestamp = raw_packet.getPacketTimeStamp();
-      uint64_t time_ns =
-          (uint64_t)timestamp.tv_sec * 1000000000 + (uint64_t)timestamp.tv_nsec;
-      if (flow_reports.find(f_tuple) != flow_reports.end()) {
-        all_intervals.push_back(time_ns - flow_reports[f_tuple]);
-        flow_with_multiple_report++;
+      if (latest_flow_fixed_report.find(f_tuple) !=
+              latest_flow_fixed_report.end() &&
+          latest_flow_local_report.find(f_tuple) !=
+              latest_flow_local_report.end()) {
+        auto latest_fixed_report = latest_flow_fixed_report[f_tuple];
+        auto latest_local_report = latest_flow_local_report[f_tuple];
+        uint64_t irg =
+            int_local_report->EgTime() - latest_local_report->EgTime();
+        if (irg < 900000000) {
+          bad_irgs++;
+          uint64_t ig1 = latest_flow_fixed_report[f_tuple]->IgTime();
+          uint64_t ig2 = int_fix_report->IgTime();
+          if ((ig2 & 0xffffc0000000L) != (ig1 & 0xffffc0000000L)) {
+            timestamp_overflow++;
+          } else {
+            other_short_irgs++;
+          }
+        }
+        all_irgs.push_back(irg);
+        flows_with_multiple_report.insert(f_tuple);
       }
-      flow_reports[f_tuple] = time_ns;
+      latest_flow_fixed_report[f_tuple] = int_fix_report;
+      latest_flow_local_report[f_tuple] = int_local_report;
     } else {
       output << "No Inner IP header" << std::endl;
       skipped++;
@@ -172,20 +190,22 @@ int main(int argc, char* argv[]) {
   output << "Total reports: " << total_reports << std::endl;
   output << "Total skipped: " << skipped << std::endl;
 
-  output << "Total Inner IPv4 5-tuples: " << flow_reports.size() << std::endl;
-  output << "Total Inner IPv4 5-tuple hashes: " << flow_hashes.size()
-         << std::endl;
+  output << "Total Inner IPv4 5-tuples: " << five_tuples.size() << std::endl;
+  // output << "Total Inner IPv4 5-tuple hashes: " << flow_hashes.size()
+  //        << std::endl;
   output << "Flows with single report: "
-         << all_intervals.size() - flow_with_multiple_report
-         << std::endl;
-  output << "Flows with multiple report: " << flow_with_multiple_report
-         << std::endl;
-  output << "Total INT report intervals: " << all_intervals.size() << std::endl;
+         << five_tuples.size() - flows_with_multiple_report.size() << std::endl;
+  output << "Flows with multiple reports(can calculate IRGs): "
+         << flows_with_multiple_report.size() << std::endl;
+  output << "Total INT IRGs: " << all_irgs.size() << std::endl;
+  output << "Bad IRGs: " << bad_irgs << std::endl;
 
-  sort(all_intervals.begin(), all_intervals.end(), std::greater<uint64_t>());
-
-  for (auto it = all_intervals.begin(); it != all_intervals.end(); ++it) {
-    output << *it << std::endl;
+  if (!FLAGS_summary) {
+    sort(all_irgs.begin(), all_irgs.end(), std::greater<uint64_t>());
+    output << "---- IRGs below ----" << std::endl;
+    for (auto it = all_irgs.begin(); it != all_irgs.end(); ++it) {
+      output << *it << std::endl;
+    }
   }
 
   if (FLAGS_o.empty()) {

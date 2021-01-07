@@ -38,7 +38,7 @@ class IntSingleFlow(StatelessTest):
         )
 
     def get_sample_packet(self, pkt_type):
-        if pkt_type == "udp":
+        if pkt_type == "tcp":
             return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / TCP() / ("*" * 1500)
         elif pkt_type == "gtpu-udp":
             return (
