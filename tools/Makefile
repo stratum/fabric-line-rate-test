@@ -12,13 +12,8 @@ pcap-info:
 	docker run --rm -v $(current_dir):$(current_dir) -w $(current_dir) $(BASE_IMAGE) \
 		g++ $(INCLUDE_PATH) -o pcap-info pcap_info/pcap_info.cc $(LIBS) $(OTHER_FLAGS)
 
-int-info:
-	docker run --rm -v $(current_dir):$(current_dir) -w $(current_dir) $(BASE_IMAGE) \
-		g++ $(INCLUDE_PATH) -o int-info int_info/int_info.cc $(LIBS)
-
 image:
 	docker build -t $(BASE_IMAGE) .
 
 clean:
 	rm -f pcap-info
-	rm -f int-info
