@@ -8,7 +8,7 @@ from datetime import datetime
 
 from lib.base_test import StatelessTest
 from lib.utils import list_port_status
-from lib.xnt import analysis_report_pcap, plot_int_result
+from lib.xnt import analysis_report_pcap
 
 
 SENDER_PORTS = [0]
@@ -94,35 +94,4 @@ class RemotePcap(StatelessTest):
         self.client.stop_capture(capture["id"], output)
         logging.info("INT report pcap file stored in {}".format(output))
         logging.info("Analyzing report pcap file...")
-        report_summary_file = analysis_report_pcap(output)
-        logging.info(
-            "INT report summary file can be found here: {}".format(report_summary_file)
-        )
-        total_flow_reported = 0
-        total_irgs = 0
-        bad_irgs = 0
-        summary = ""
-        with open(report_summary_file, "r") as f:
-            for l in f:
-                if "---- IRGs below ----" in l:
-                    break
-                if "Total Inner IPv4 5-tuples" in l:
-                    total_flow_reported = int(l.split(":")[1])
-
-                if "Total INT IRGs" in l:
-                    total_irgs = int(l.split(":")[1])
-                if "Bad IRGs" in l:
-                    bad_irgs = int(l.split(":")[1])
-                    continue
-                summary += l
-
-        if args.total_flows != 0:
-            summary += "Accuracy score: {}\n".format(total_flow_reported * 100 / args.total_flows)
-        summary += "Efficiency score: {}\n".format((total_irgs - bad_irgs) * 100 / total_irgs)
-        logging.info("INT report summary:")
-        logging.info(summary)
-        logging.info("Ploting the CDF from {}".format(report_summary_file))
-        report_plot_file = plot_int_result(report_summary_file)
-        logging.info(
-            "Histogram and CDF graph can be found here: {}".format(report_plot_file)
-        )
+        analysis_report_pcap(output, args.total_flows)

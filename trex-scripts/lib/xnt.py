@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
 import logging
-import subprocess
-from os.path import dirname, abspath, splitext
+from os.path import abspath, splitext, exists
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-
+from scapy.utils import RawPcapReader, inet_aton
 from scapy.fields import BitField, ShortField, XByteField, XIntField, XShortField
-from scapy.layers.inet import UDP
+from scapy.layers.inet import UDP, TCP, IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, bind_layers
 
-root_dir = abspath(dirname(abspath(__file__)) + "../../../")
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("INT Util")
+log.setLevel(logging.INFO)
 
 class IntMetaHdr(Packet):
     name = "INT_META"
@@ -62,7 +64,6 @@ class IntL45ReportFixed(Packet):
         XIntField("seq_no", 0),
         XIntField("ingress_tstamp", 0),
     ]
-
 
 class IntL45LocalReport(Packet):
     name = "INT_L45_LOCAL_REPORT"
@@ -137,7 +138,7 @@ def analyze_int_reports(report_packets: list, expected_report_num: int = -1) -> 
     """
     Analyze INT reposts.
 
-    :paraeteres:
+    :parameters:
     report_packets: list
         List of INT report packet.
     expected_report_num: int
@@ -150,7 +151,7 @@ def analyze_int_reports(report_packets: list, expected_report_num: int = -1) -> 
         if len(report_packets) not in range(
             expected_report_num - 1, expected_report_num + 2
         ):
-            logging.error(
+            log.error(
                 "Expected to receive %d +/- 1 pakcets, but got %d",
                 expected_report_num,
                 len(report_packets),
@@ -158,44 +159,123 @@ def analyze_int_reports(report_packets: list, expected_report_num: int = -1) -> 
 
     prev_seq_no = None
     for pkt in report_packets:
-        logging.info("%s", get_readable_int_report_str(pkt))
+        log.info("%s", get_readable_int_report_str(pkt))
         if IntL45ReportFixed in pkt:
             seq_no = pkt[IntL45ReportFixed].seq_no
             if prev_seq_no and seq_no != (prev_seq_no + 1):
-                logging.error(
+                log.error(
                     "Expect to get seq no %d, but got %d", prev_seq_no + 1, seq_no
                 )
             prev_seq_no = seq_no
 
 
-def analysis_report_pcap(pcap_file: str) -> str:
-    report_summary_file = splitext(pcap_file)[0] + ".txt"
-    args = [
-        "{}/tools/int-info".format(root_dir),
-        "-i",
-        pcap_file,
-        "-o",
-        report_summary_file,
-    ]
-    subprocess.run(args)
-    return report_summary_file
+def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str:
+    pcap_reader = RawPcapReader(pcap_file)
+    total_reports = 0
+    skipped = 0
+    prev_seq_no = 0
+    five_tuple_to_prev_report_time = {} # 5-tuple -> latest report time
+    flow_with_multiple_reports = set()
+    valid_irgs = []
+    bad_irgs = []
+    invalid_irgs = []
 
+    while True:
+        # import pdb; pdb.set_trace()
+        try:
+            packet_info = pcap_reader.next()
+        except EOFError:
+            break
+        except StopIteration:
+            break
 
-def plot_int_result(report_summary_file: str) -> str:
-    report_plot_file = splitext(report_summary_file)[0] + ".png"
-    irgs = []
-    with open(report_summary_file, "r") as f:
-        for line in f:
-            try:
-                interval = float(line) / 1000000000
-                irgs.append(interval)
-            except ValueError:
-                pass  # Ignore lines that doesn't include the number
-    bin_size = 0.25  # sec
-    max_val = np.max(irgs)
-    percentile_of_900_msec = stats.percentileofscore(irgs, 0.9)
-    percentile_of_one_sec = stats.percentileofscore(irgs, 1)
-    percentile_of_two_sec = stats.percentileofscore(irgs, 2)
+        # packet_info = (raw-bytes, packet-metadata)
+        report_pkt = Ether(packet_info[0])
+
+        if IntL45ReportFixed not in report_pkt:
+            skipped += 1
+            continue
+
+        if IntL45LocalReport not in report_pkt:
+            # TODO: handle drop and queue report
+            skipped += 1
+            continue
+
+        int_fix_report = report_pkt[IntL45ReportFixed]
+        int_local_report = report_pkt[IntL45LocalReport]
+
+        # Check the sequence number
+        seq_no = int_fix_report.seq_no
+        if prev_seq_no != 0 and prev_seq_no != (seq_no - 1):
+            log.warn("Wrong sequence number {}, should be {}".format(seq_no, prev_seq_no + 1))
+        prev_seq_no = seq_no
+
+        # Checks the internal packet
+        # Here we skip packets that is not a TCP or UDP packet since they can be
+        # fragmented or something else.
+
+        if TCP in int_local_report:
+            internal_l4 = int_local_report[TCP]
+        elif UDP in int_local_report:
+            internal_l4 = int_local_report[UDP]
+        else:
+            skipped += 1
+            continue
+
+        # Curently we only process IPv4 packets, but we can process IPv6 if needed.
+        if IP not in int_local_report:
+            skipped += 1
+            continue
+
+        internal_ip = int_local_report[IP]
+        five_tuple = (inet_aton(internal_ip.src) +
+                      inet_aton(internal_ip.dst) +
+                      int.to_bytes(internal_ip.proto, 1, 'big') +
+                      int.to_bytes(internal_l4.sport, 2, 'big') +
+                      int.to_bytes(internal_l4.dport, 2, 'big'))
+
+        if five_tuple in five_tuple_to_prev_report_time:
+            prev_report_time = five_tuple_to_prev_report_time[five_tuple]
+            irg = (int_local_report.egress_tstamp - prev_report_time) / 1000000000
+            if irg > 0:
+                valid_irgs.append(irg)
+            flow_with_multiple_reports.add(five_tuple)
+
+            if 0 < irg and irg < 0.9:
+                bad_irgs.append(irg)
+            if irg <= 0:
+                invalid_irgs.append(irg)
+
+        five_tuple_to_prev_report_time[five_tuple] = int_local_report.egress_tstamp
+        total_reports += 1
+        if total_reports % 10000 == 0:
+            log.info("{}".format(total_reports))
+
+    log.info("Reports processed: {}".format(total_reports))
+    log.info("Skipped packets: {}".format(skipped))
+    total_five_tuples = len(five_tuple_to_prev_report_time)
+    log.info("Total 5-tuples: {}".format(total_five_tuples))
+    log.info("Flows with single report: {}".format(
+        total_five_tuples - len(flow_with_multiple_reports)))
+    log.info("Flows with multiple report: {}".format(
+        len(flow_with_multiple_reports)))
+    log.info("Total INT IRGs: {}".format(len(valid_irgs)))
+    log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_irgs)))
+    log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_irgs)))
+
+    if total_flows_from_trace != 0:
+        log.info("Accuracy score: {}".format(total_five_tuples * 100 / total_flows_from_trace))
+    log.info("Efficiency score: {}".format((len(valid_irgs) - len(bad_irgs)) * 100 / len(valid_irgs)))
+
+    # Plot Histogram and CDF
+    report_plot_file = abspath(splitext(pcap_file)[0] + ".png")
+    if exists(report_plot_file):
+        os.remove(report_plot_file)
+    bin_size = 0.01  # sec
+    max_val = np.max(valid_irgs)
+    percentile_of_900_msec = stats.percentileofscore(valid_irgs, 0.9)
+    percentile_of_one_sec = stats.percentileofscore(valid_irgs, 1)
+    percentile_of_two_sec = stats.percentileofscore(valid_irgs, 2)
     percentiles = [
         1,
         5,
@@ -204,10 +284,10 @@ def plot_int_result(report_summary_file: str) -> str:
         percentile_of_one_sec,
         percentile_of_two_sec,
     ]
-    vlines = np.percentile(irgs, percentiles)
+    vlines = np.percentile(valid_irgs, percentiles)
 
     bins = np.arange(0, max_val + bin_size, bin_size)
-    hist, bins = np.histogram(irgs, bins=bins)
+    hist, bins = np.histogram(valid_irgs, bins=bins)
 
     # to percentage
     hist = hist / hist.sum()
@@ -231,4 +311,5 @@ def plot_int_result(report_summary_file: str) -> str:
         ax.text(x, y, "({:.2f}%: {:.2f})".format(percentiles[i], x))
 
     plt.savefig(report_plot_file)
+    log.info("Histogram and CDF graph can be found here: {}".format(report_plot_file))
     return report_plot_file
