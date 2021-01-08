@@ -12,9 +12,9 @@ from scapy.layers.inet import UDP, TCP, IP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, bind_layers
 
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("INT Util")
 log.setLevel(logging.INFO)
+
 
 class IntMetaHdr(Packet):
     name = "INT_META"
@@ -64,6 +64,7 @@ class IntL45ReportFixed(Packet):
         XIntField("seq_no", 0),
         XIntField("ingress_tstamp", 0),
     ]
+
 
 class IntL45LocalReport(Packet):
     name = "INT_L45_LOCAL_REPORT"
@@ -133,48 +134,13 @@ def get_readable_int_report_str(pkt: Packet) -> str:
         latency,
     )
 
-
-def analyze_int_reports(report_packets: list, expected_report_num: int = -1) -> None:
-    """
-    Analyze INT reposts.
-
-    :parameters:
-    report_packets: list
-        List of INT report packet.
-    expected_report_num: int
-        The expected number of reports, should be 1 per flow per second if there for
-        normal case.
-        Don't check if this parameter is negtive
-    """
-
-    if expected_report_num >= 0:
-        if len(report_packets) not in range(
-            expected_report_num - 1, expected_report_num + 2
-        ):
-            log.error(
-                "Expected to receive %d +/- 1 pakcets, but got %d",
-                expected_report_num,
-                len(report_packets),
-            )
-
-    prev_seq_no = None
-    for pkt in report_packets:
-        log.info("%s", get_readable_int_report_str(pkt))
-        if IntL45ReportFixed in pkt:
-            seq_no = pkt[IntL45ReportFixed].seq_no
-            if prev_seq_no and seq_no != (prev_seq_no + 1):
-                log.error(
-                    "Expect to get seq no %d, but got %d", prev_seq_no + 1, seq_no
-                )
-            prev_seq_no = seq_no
-
-
 def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str:
     pcap_reader = RawPcapReader(pcap_file)
     total_reports = 0
     skipped = 0
-    prev_seq_no = 0
-    five_tuple_to_prev_report_time = {} # 5-tuple -> latest report time
+    dropped = 0  # based on seq number
+    prev_seq_no = {}  # HW ID -> seq number
+    five_tuple_to_prev_report_time = {}  # 5-tuple -> latest report time
     flow_with_multiple_reports = set()
     valid_irgs = []
     bad_irgs = []
@@ -205,10 +171,10 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
         int_local_report = report_pkt[IntL45LocalReport]
 
         # Check the sequence number
+        hw_id = int_fix_report.hw_id
         seq_no = int_fix_report.seq_no
-        if prev_seq_no != 0 and prev_seq_no != (seq_no - 1):
-            log.warn("Wrong sequence number {}, should be {}".format(seq_no, prev_seq_no + 1))
-        prev_seq_no = seq_no
+        dropped += seq_no - prev_seq_no[hw_id] - 1
+        prev_seq_no[hw_id] = seq_no
 
         # Checks the internal packet
         # Here we skip packets that is not a TCP or UDP packet since they can be
@@ -228,11 +194,13 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
             continue
 
         internal_ip = int_local_report[IP]
-        five_tuple = (inet_aton(internal_ip.src) +
-                      inet_aton(internal_ip.dst) +
-                      int.to_bytes(internal_ip.proto, 1, 'big') +
-                      int.to_bytes(internal_l4.sport, 2, 'big') +
-                      int.to_bytes(internal_l4.dport, 2, 'big'))
+        five_tuple = (
+            inet_aton(internal_ip.src)
+            + inet_aton(internal_ip.dst)
+            + int.to_bytes(internal_ip.proto, 1, "big")
+            + int.to_bytes(internal_l4.sport, 2, "big")
+            + int.to_bytes(internal_l4.dport, 2, "big")
+        )
 
         if five_tuple in five_tuple_to_prev_report_time:
             prev_report_time = five_tuple_to_prev_report_time[five_tuple]
@@ -255,17 +223,28 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
     log.info("Skipped packets: {}".format(skipped))
     total_five_tuples = len(five_tuple_to_prev_report_time)
     log.info("Total 5-tuples: {}".format(total_five_tuples))
-    log.info("Flows with single report: {}".format(
-        total_five_tuples - len(flow_with_multiple_reports)))
-    log.info("Flows with multiple report: {}".format(
-        len(flow_with_multiple_reports)))
+    log.info(
+        "Flows with single report: {}".format(
+            total_five_tuples - len(flow_with_multiple_reports)
+        )
+    )
+    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_reports)))
     log.info("Total INT IRGs: {}".format(len(valid_irgs)))
     log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_irgs)))
     log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_irgs)))
+    log.info("Total report dropped: {}".format(dropped))
 
     if total_flows_from_trace != 0:
-        log.info("Accuracy score: {}".format(total_five_tuples * 100 / total_flows_from_trace))
-    log.info("Efficiency score: {}".format((len(valid_irgs) - len(bad_irgs)) * 100 / len(valid_irgs)))
+        log.info(
+            "Accuracy score: {}".format(
+                total_five_tuples * 100 / total_flows_from_trace
+            )
+        )
+    log.info(
+        "Efficiency score: {}".format(
+            (len(valid_irgs) - len(bad_irgs)) * 100 / len(valid_irgs)
+        )
+    )
 
     # Plot Histogram and CDF
     report_plot_file = abspath(splitext(pcap_file)[0] + ".png")
