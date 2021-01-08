@@ -1,3 +1,7 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
+SPDX-License-Identifier: Apache-2.0
+-->
 # Tools for analizing pcap files
 
 ## Requirement
@@ -14,8 +18,8 @@
 - Total number of packets
 - Number of IPv4 packets
 - Number of IPv6 packets
-- Number of IPv5 5-tuples
-- Number of IPv5 5-tuples hashes (CRC32)
+- Number of IPv4 5-tuples
+- Number of IPv4 5-tuples hashes (CRC32)
 
 ### Build pcap-info
 
