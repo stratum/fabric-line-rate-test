@@ -173,7 +173,8 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
         # Check the sequence number
         hw_id = int_fix_report.hw_id
         seq_no = int_fix_report.seq_no
-        dropped += seq_no - prev_seq_no[hw_id] - 1
+        if hw_id in prev_seq_no:
+            dropped += seq_no - prev_seq_no[hw_id] - 1
         prev_seq_no[hw_id] = seq_no
 
         # Checks the internal packet
@@ -216,8 +217,6 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
 
         five_tuple_to_prev_report_time[five_tuple] = int_local_report.egress_tstamp
         total_reports += 1
-        if total_reports % 10000 == 0:
-            log.info("{}".format(total_reports))
 
     log.info("Reports processed: {}".format(total_reports))
     log.info("Skipped packets: {}".format(skipped))
@@ -240,6 +239,11 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
                 total_five_tuples * 100 / total_flows_from_trace
             )
         )
+
+    if len(valid_irgs) <= 0:
+        log.info("No valid IRGs")
+        return
+
     log.info(
         "Efficiency score: {}".format(
             (len(valid_irgs) - len(bad_irgs)) * 100 / len(valid_irgs)
@@ -250,8 +254,8 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
     report_plot_file = abspath(splitext(pcap_file)[0] + ".png")
     if exists(report_plot_file):
         os.remove(report_plot_file)
-    bin_size = 0.01  # sec
-    max_val = np.max(valid_irgs)
+    bin_size = 0.25  # sec
+    max_val = max(np.max(valid_irgs), 3)
     percentile_of_900_msec = stats.percentileofscore(valid_irgs, 0.9)
     percentile_of_one_sec = stats.percentileofscore(valid_irgs, 1)
     percentile_of_two_sec = stats.percentileofscore(valid_irgs, 2)
