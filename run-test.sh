@@ -29,6 +29,7 @@ done
 
 docker run --rm \
            -v "${DIR}/trex-scripts:/workspace/trex-scripts" \
+           -v "${DIR}/tools:/workspace/tools" \
            -v "${DIR}/tmp:/tmp" \
            -w /workspace \
            "${IMAGE}" \

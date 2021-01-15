@@ -28,7 +28,7 @@ from trex_stf_lib.trex_client import (
 TREX_FILES_DIR = "/tmp/trex_files/"
 LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEFAULT_KILL_TIMEOUT = 10
-logging.basicConfig(format=LOG_FORMAT, level="INFO")
+logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
 
 def get_test_class(test_name: str) -> typing.Type[BaseTest]:
