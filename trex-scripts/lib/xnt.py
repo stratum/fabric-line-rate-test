@@ -1,16 +1,17 @@
 # SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
 # SPDX-License-Identifier: Apache-2.0
 import logging
-from os.path import abspath, splitext, exists
 import os
-import numpy as np
+from os.path import abspath, exists, splitext
+
 import matplotlib.pyplot as plt
-from scipy import stats
-from scapy.utils import RawPcapReader, inet_aton
+import numpy as np
 from scapy.fields import BitField, ShortField, XByteField, XIntField, XShortField
-from scapy.layers.inet import UDP, TCP, IP
+from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, bind_layers
+from scapy.utils import RawPcapReader, inet_aton
+from scipy import stats
 
 log = logging.getLogger("INT Util")
 log.setLevel(logging.INFO)
@@ -133,6 +134,7 @@ def get_readable_int_report_str(pkt: Packet) -> str:
         eg_tstamp,
         latency,
     )
+
 
 def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str:
     pcap_reader = RawPcapReader(pcap_file)
