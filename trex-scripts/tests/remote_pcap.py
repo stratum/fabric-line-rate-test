@@ -10,7 +10,6 @@ from lib.base_test import StatelessTest
 from lib.utils import list_port_status
 from lib.xnt import analysis_report_pcap
 
-
 SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
 
