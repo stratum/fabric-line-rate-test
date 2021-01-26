@@ -9,23 +9,13 @@ import grpc
 import queue
 import threading
 import time
-import socket
+import os
+from lib.utils import stringify
 
 from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
 from p4.config.v1 import p4info_pb2
 from google.rpc import code_pb2, status_pb2
-
-# Convert integer (with length) to binary byte string
-def stringify(n, length):
-    return n.to_bytes(length, byteorder="big")
-
-
-def ipv4_to_binary(addr):
-    return socket.inet_aton(addr)
-
-
-def mac_to_binary(addr):
-    return bytes.fromhex(addr.replace(":", ""))
+from google import protobuf
 
 
 # Used to indicate that the gRPC error Status object returned by the server has
@@ -117,12 +107,16 @@ class P4RuntimeClient(object):
     def __init__(
         self, grpc_addr="localhost:9339", device_id=1, p4info_path=None, election_id=1
     ):
-        # TODO, check p4info is valid or not
+        if not os.path.exists(p4info_path):
+            raise RuntimeError("P4Info file: %s does not exists.", p4info_path)
+        self.p4info = p4info_pb2.P4Info()
+        with open(p4info_path, "rb") as fin:
+            protobuf.text_format.Merge(fin.read(), self.p4info)
         self.channel = grpc.insecure_channel(grpc_addr)
         self.stub = p4runtime_pb2_grpc.P4RuntimeStub(self.channel)
+        self.device_id = device_id
         self.election_id = election_id
 
-    def start(self):
         # Set up stream
         self.stream_out_q = queue.Queue()
         self.stream_in_q = queue.Queue()
@@ -642,3 +636,18 @@ class P4RuntimeClient(object):
             and update.entity.WhichOneof("entity") == "table_entry"
             and update.entity.table_entry.is_default_action
         )
+
+    def add_clone_group(self, clone_id, ports):
+        req = self.get_new_write_request()
+        update = req.updates.add()
+        update.type = p4runtime_pb2.Update.INSERT
+        pre_entry = update.entity.packet_replication_engine_entry
+        clone_entry = pre_entry.clone_session_entry
+        clone_entry.session_id = clone_id
+        clone_entry.class_of_service = 0
+        clone_entry.packet_length_bytes = 0
+        for port in ports:
+            replica = clone_entry.replicas.add()
+            replica.egress_port = port
+            replica.instance = 0  # set to 0 because we don't support it yet.
+        return req, self.write_request(req)
