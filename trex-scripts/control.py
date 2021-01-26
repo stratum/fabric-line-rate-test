@@ -220,6 +220,7 @@ def main() -> int:
             trex_client.stop()
             trex_client.release()
             trex_client.disconnect()
+            test.stop()
     except ConnectionRefusedError:
         logging.error(
             "Unable to connect to server %s.\n" + "Did you start the Trex daemon?",

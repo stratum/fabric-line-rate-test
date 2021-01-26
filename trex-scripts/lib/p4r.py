@@ -8,11 +8,12 @@ import os
 import queue
 import threading
 import time
+from argparse import ArgumentParser
 from collections import Counter
-from functools import partialmethod
+from functools import partial
 
 import grpc
-from google import protobuf
+from google.protobuf import text_format
 from google.rpc import code_pb2, status_pb2
 from lib.utils import stringify
 from p4.config.v1 import p4info_pb2
@@ -102,12 +103,27 @@ class P4RuntimeException(Exception):
         return message
 
 
-class P4RuntimeClient(object):
-    """
-    P4Runtime Client
-    """
+class P4RuntimeTest:
+    @classmethod
+    def setup_subparser(cls, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "--set-up-flows",
+            help="Set up flows on the switch",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--switch-addr",
+            type=str,
+            help="P4Runtime server address",
+            default="localhost:9339",
+        )
+        parser.add_argument("--p4info", type=str, help="P4Info file", default="")
+        parser.add_argument(
+            "--pipeline-config", type=str, help="Pipeline config file", default=""
+        )
 
-    def __init__(
+    def connect(
         self,
         grpc_addr="localhost:9339",
         device_id=1,
@@ -123,7 +139,7 @@ class P4RuntimeClient(object):
             )
         self.p4info = p4info_pb2.P4Info()
         with open(p4info, "rb") as fin:
-            protobuf.text_format.Merge(fin.read(), self.p4info)
+            text_format.Merge(fin.read(), self.p4info)
         self.channel = grpc.insecure_channel(grpc_addr)
         self.stub = p4runtime_pb2_grpc.P4RuntimeStub(self.channel)
         self.device_id = device_id
@@ -166,10 +182,10 @@ class P4RuntimeClient(object):
 
         # Push pipeline config
         req = p4runtime_pb2.SetForwardingPipelineConfigRequest()
-        req.devive_id = device_id
+        req.device_id = device_id
         req.election_id.high = 0
         req.election_id.low = self.election_id
-        req.config.p4info = self.p4info
+        req.config.p4info.CopyFrom(self.p4info)
         req.config.p4_device_config = b""
         with open(pipeline_config, "rb") as pipeline_config_f:
             req.config.p4_device_config += pipeline_config_f.read()
@@ -181,11 +197,13 @@ class P4RuntimeClient(object):
             self.stop()
             raise RuntimeError("Failed to push pipeline config")
 
-    def stop(self):
+        self.import_p4info_names()
+
+    def disconnect(self):
         self.stream_out_q.put(None)
         self.stream_recv_thread.join()
 
-    def import_p4info_names(self, p4info):
+    def import_p4info_names(self):
         """
         Import all name and ID from given p4info
         """
@@ -199,7 +217,7 @@ class P4RuntimeClient(object):
             "counters",
             "direct_counters",
         ]:
-            for obj in getattr(p4info, p4_obj_type):
+            for obj in getattr(self.p4info, p4_obj_type):
                 pre = obj.preamble
                 suffix = None
                 for s in reversed(pre.name.split(".")):
@@ -224,9 +242,9 @@ class P4RuntimeClient(object):
             ("direct_counters", "direct_counter"),
         ]:
             name = "_".join(["get", nickname])
-            setattr(self, name, partialmethod(self.get_obj, obj_type))
+            setattr(self, name, partial(self.get_obj, obj_type))
             name = "_".join(["get", nickname, "id"])
-            setattr(self, name, partialmethod(self.get_obj_id, obj_type))
+            setattr(self, name, partial(self.get_obj_id, obj_type))
 
     def get_obj(self, p4_obj_type, p4_name):
         key = (p4_obj_type, p4_name)
@@ -240,6 +258,29 @@ class P4RuntimeClient(object):
     def get_obj_id(self, p4_obj_type, p4_name):
         obj = self.get_obj(p4_obj_type, p4_name)
         return obj.preamble.id
+
+    def get_obj_name_from_id(self, p4info_id):
+        return self.p4info_id_to_name[p4info_id]
+
+    def get_param_id(self, action_name, param_name):
+        a = self.get_obj("actions", action_name)
+        for p in a.params:
+            if p.name == param_name:
+                return p.id
+        raise Exception(
+            "Param '%s' not found in action '%s'" % (param_name, action_name)
+        )
+
+    def get_mf_id(self, table_name, mf_name):
+        t = self.get_obj("tables", table_name)
+        if t is None:
+            return None
+        for mf in t.match_fields:
+            if mf.name == mf_name:
+                return mf.id
+        raise Exception(
+            "Match field '%s' not found in table '%s'" % (mf_name, table_name)
+        )
 
     def get_stream_packet(self, type_, timeout=1):
         start = time.time()
@@ -265,7 +306,7 @@ class P4RuntimeClient(object):
 
     class Exact(MF):
         def __init__(self, mf_name, v):
-            super(P4RuntimeClient.Exact, self).__init__(mf_name)
+            super(P4RuntimeTest.Exact, self).__init__(mf_name)
             self.v = v
 
         def add_to(self, mf_id, mk):
@@ -275,7 +316,7 @@ class P4RuntimeClient(object):
 
     class Lpm(MF):
         def __init__(self, mf_name, v, pLen):
-            super(P4RuntimeClient.Lpm, self).__init__(mf_name)
+            super(P4RuntimeTest.Lpm, self).__init__(mf_name)
             self.v = v
             self.pLen = pLen
 
@@ -304,7 +345,7 @@ class P4RuntimeClient(object):
 
     class Ternary(MF):
         def __init__(self, mf_name, v, mask):
-            super(P4RuntimeClient.Ternary, self).__init__(mf_name)
+            super(P4RuntimeTest.Ternary, self).__init__(mf_name)
             self.v = v
             self.mask = mask
 
@@ -325,7 +366,7 @@ class P4RuntimeClient(object):
 
     class Range(MF):
         def __init__(self, mf_name, low, high):
-            super(P4RuntimeClient.Range, self).__init__(mf_name)
+            super(P4RuntimeTest.Range, self).__init__(mf_name)
             self.low = low
             self.high = high
 
@@ -382,10 +423,8 @@ class P4RuntimeClient(object):
             raise P4RuntimeException(e)
         return entities
 
-    def write_request(self, req, store=True):
+    def write_request(self, req):
         rep = self._write(req)
-        if store:
-            self.reqs.append(req)
         return rep
 
     def get_new_write_request(self):

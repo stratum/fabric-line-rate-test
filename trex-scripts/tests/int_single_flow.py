@@ -8,7 +8,6 @@ from datetime import datetime
 from lib.base_test import StatelessTest
 from lib.fabric_tna import *
 from lib.gtpu import GTPU
-from lib.p4r_client import P4RuntimeClient
 from lib.utils import list_port_status
 from lib.xnt import analysis_report_pcap
 from scapy.layers.all import IP, TCP, UDP, Ether
@@ -34,31 +33,15 @@ INT_REPORT_MIRROR_IDS = [300, 301, 302, 303]
 RECIRC_PORTS = [68, 196, 324, 452]
 
 
-class IntSingleFlow(StatelessTest):
+class IntSingleFlow(StatelessTest, FabricTnaTest):
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
+        FabricTnaTest.setup_subparser(parser)
         parser.add_argument("--duration", type=int, help="Test duration", default=5)
         parser.add_argument(
             "--mult", type=str, help="Traffic multiplier", default="1pps"
         )
         parser.add_argument("--pkt-type", type=str, help="Packet type", default="tcp")
-        parser.add_argument(
-            "--set-up-flows",
-            type=bool,
-            help="Set up flows on the switch",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--switch-addr",
-            type=str,
-            help="P4Runtime server address",
-            default="localhost:9339",
-        )
-        parser.add_argument("--p4info", type=str, help="P4Info file", default="")
-        parser.add_argument(
-            "--pipeline-config", type=str, help="Pipeline config file", default=""
-        )
 
     def get_sample_packet(self, pkt_type):
         if pkt_type == "tcp":
@@ -90,42 +73,37 @@ class IntSingleFlow(StatelessTest):
     def set_up_flows(self) -> None:
         # Filtering rules
         for i in range(0, 4):
-            set_up_port(self.p4r_client, SWITCH_PORTS[i], DEFAULT_VLAN)
-            set_forwarding_type(
-                self.p4r_client,
+            self.set_up_port(SWITCH_PORTS[i], DEFAULT_VLAN)
+            self.set_forwarding_type(
                 SWITCH_PORTS[i],
                 SWITCH_MAC,
                 ethertype=ETH_TYPE_IPV4,
                 fwd_type=FORWARDING_TYPE_UNICAST_IPV4,
             )
         # Forwarding rules
-        add_forwarding_routing_v4_entry(self.p4r_client, DEST_IP, IP_PREFIX, 100)
-        add_forwarding_routing_v4_entry(self.p4r_client, COL_IP, IP_PREFIX, 101)
+        self.add_forwarding_routing_v4_entry(DEST_IP, IP_PREFIX, 100)
+        self.add_forwarding_routing_v4_entry(COL_IP, IP_PREFIX, 101)
 
         # Next rules
         # Send to the dest host
-        add_next_routing(self.p4r_client, 100, SWITCH_PORTS[1], SWITCH_MAC, DEST_MAC)
+        self.add_next_routing(100, SWITCH_PORTS[1], SWITCH_MAC, DEST_MAC)
         # Send to the collector
-        add_next_routing(self.p4r_client, 101, SWITCH_PORTS[3], SWITCH_MAC, COL_MAC)
-        add_next_vlan(self.p4r_client, 100, DEFAULT_VLAN)
-        add_next_vlan(self.p4r_client, 101, DEFAULT_VLAN)
+        self.add_next_routing(101, SWITCH_PORTS[3], SWITCH_MAC, COL_MAC)
+        self.add_next_vlan(100, DEFAULT_VLAN)
+        self.add_next_vlan(101, DEFAULT_VLAN)
         # INT rules
-        set_up_watchlist_flow(self.p4r_client, SOURCE_IP, DEST_IP)
-        set_up_int_mirror_flow(self.p4r_client, SWITCH_ID)
-        set_up_report_flow(
-            self.p4r_client, SWITCH_MAC, COL_MAC, SWITCH_IP, COL_IP, SWITCH_PORTS[3]
-        )
+        self.set_up_watchlist_flow(SOURCE_IP, DEST_IP)
+        self.set_up_int_mirror_flow(SWITCH_ID)
+        self.set_up_report_flow(SWITCH_MAC, COL_MAC, SWITCH_IP, COL_IP, SWITCH_PORTS[3])
 
         for i in range(0, 4):
-            set_up_report_mirror_flow(
-                self.p4r_client, INT_REPORT_MIRROR_IDS[i], RECIRC_PORTS[i]
-            )
+            self.set_up_report_mirror_flow(INT_REPORT_MIRROR_IDS[i], RECIRC_PORTS[i])
 
     def start(self, args) -> None:
         if args.set_up_flows:
-            self.p4r_client = P4RuntimeClient(
+            self.connect(
                 grpc_addr=args.switch_addr,
-                p4info_path=args.p4info,
+                p4info=args.p4info,
                 pipeline_config=args.pipeline_config,
             )
             self.set_up_flows()
@@ -163,3 +141,6 @@ class IntSingleFlow(StatelessTest):
         self.client.stop_capture(capture["id"], output)
         analysis_report_pcap(output)
         list_port_status(self.client.get_stats())
+
+    def stop(self):
+        self.disconnect()
