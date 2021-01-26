@@ -6,11 +6,11 @@ from argparse import ArgumentParser
 from datetime import datetime
 
 from lib.base_test import StatelessTest
+from lib.fabric_tna import *
 from lib.gtpu import GTPU
+from lib.p4r_client import P4RuntimeClient
 from lib.utils import list_port_status
 from lib.xnt import analysis_report_pcap
-from lib.p4r_client import P4RuntimeClient
-from lib.fabric_tna import *
 from scapy.layers.all import IP, TCP, UDP, Ether
 from trex_stl_lib.api import STLPktBuilder, STLStream, STLTXCont
 
@@ -56,6 +56,9 @@ class IntSingleFlow(StatelessTest):
             default="localhost:9339",
         )
         parser.add_argument("--p4info", type=str, help="P4Info file", default="")
+        parser.add_argument(
+            "--pipeline-config", type=str, help="Pipeline config file", default=""
+        )
 
     def get_sample_packet(self, pkt_type):
         if pkt_type == "tcp":
@@ -121,7 +124,9 @@ class IntSingleFlow(StatelessTest):
     def start(self, args) -> None:
         if args.set_up_flows:
             self.p4r_client = P4RuntimeClient(
-                grpc_addr=args.switch_addr, p4info_path=args.p4info
+                grpc_addr=args.switch_addr,
+                p4info_path=args.p4info,
+                pipeline_config=args.pipeline_config,
             )
             self.set_up_flows()
         pkt = self.get_sample_packet(args.pkt_type)

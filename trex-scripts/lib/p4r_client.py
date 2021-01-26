@@ -3,19 +3,22 @@
 
 # A module that includes all P4Runtime related utilities.
 
-from collections import Counter
-from functools import partialmethod
-import grpc
+import logging
+import os
 import queue
 import threading
 import time
-import os
-from lib.utils import stringify
+from collections import Counter
+from functools import partialmethod
 
-from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
-from p4.config.v1 import p4info_pb2
-from google.rpc import code_pb2, status_pb2
+import grpc
 from google import protobuf
+from google.rpc import code_pb2, status_pb2
+from lib.utils import stringify
+from p4.config.v1 import p4info_pb2
+from p4.v1 import p4runtime_pb2, p4runtime_pb2_grpc
+
+log = logging.getLogger("P4Runtime Client")
 
 
 # Used to indicate that the gRPC error Status object returned by the server has
@@ -105,12 +108,21 @@ class P4RuntimeClient(object):
     """
 
     def __init__(
-        self, grpc_addr="localhost:9339", device_id=1, p4info_path=None, election_id=1
+        self,
+        grpc_addr="localhost:9339",
+        device_id=1,
+        p4info=None,
+        election_id=1,
+        pipeline_config=None,
     ):
-        if not os.path.exists(p4info_path):
-            raise RuntimeError("P4Info file: %s does not exists.", p4info_path)
+        if not os.path.exists(p4info):
+            raise RuntimeError("P4Info file: %s does not exists.", p4info)
+        if not os.path.exists(pipeline_config):
+            raise RuntimeError(
+                "Pipeline config file: %s does not exists.", pipeline_config
+            )
         self.p4info = p4info_pb2.P4Info()
-        with open(p4info_path, "rb") as fin:
+        with open(p4info, "rb") as fin:
             protobuf.text_format.Merge(fin.read(), self.p4info)
         self.channel = grpc.insecure_channel(grpc_addr)
         self.stub = p4runtime_pb2_grpc.P4RuntimeStub(self.channel)
@@ -149,7 +161,25 @@ class P4RuntimeClient(object):
 
         rep = self.get_stream_packet("arbitration", timeout=2)
         if rep is None:
-            self.fail("Failed to establish handshake")
+            self.stop()
+            raise RuntimeError("Failed to establish handshake")
+
+        # Push pipeline config
+        req = p4runtime_pb2.SetForwardingPipelineConfigRequest()
+        req.devive_id = device_id
+        req.election_id.high = 0
+        req.election_id.low = self.election_id
+        req.config.p4info = self.p4info
+        req.config.p4_device_config = b""
+        with open(pipeline_config, "rb") as pipeline_config_f:
+            req.config.p4_device_config += pipeline_config_f.read()
+        req.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_COMMIT
+
+        try:
+            self.stub.SetForwardingPipelineConfig(req)
+        except Exception as e:
+            self.stop()
+            raise RuntimeError("Failed to push pipeline config")
 
     def stop(self):
         self.stream_out_q.put(None)

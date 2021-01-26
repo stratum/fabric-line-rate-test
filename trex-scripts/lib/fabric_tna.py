@@ -3,7 +3,7 @@
 
 # Utilities to generate table entries and groups for fabric-tna pipeline
 
-from lib.utils import stringify, mac_to_binary, ipv4_to_binary
+from lib.utils import ipv4_to_binary, mac_to_binary, stringify
 
 DEFAULT_PRIORITY = 10
 MAC_MASK = ":".join(["ff"] * 6)
