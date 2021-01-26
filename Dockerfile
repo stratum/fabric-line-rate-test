@@ -23,7 +23,8 @@ FROM ubuntu:20.04 as runtime
 ARG TREX_EXT_LIBS
 ARG TREX_LIBS
 RUN apt update && apt install -y dumb-init python3-dev build-essential python3-pip
-RUN pip3 install scipy==1.5.4 numpy==1.19.4 matplotlib==3.3.3
+ADD requirements.txt /
+RUN pip3 install -r requirements.txt
 ENV TREX_EXT_LIBS=${TREX_EXT_LIBS}
 ENV PYTHONPATH=/workspace/trex-scripts:${TREX_EXT_LIBS}:${TREX_LIBS}
 COPY --from=builder /output /
