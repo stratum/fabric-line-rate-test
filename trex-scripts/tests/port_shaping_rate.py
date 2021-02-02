@@ -49,7 +49,7 @@ class PortShapingSTL(StatelessTest):
         )
 
         # Start sending traffic
-        self.client.start(SENDER_PORT, mult=args.mult, duration=args.duration)
+        self.client.start(SENDER_PORT, mult="100%", duration=args.duration)
 
         logging.info("Waiting until all traffic stop")
         self.client.wait_on_traffic(ports=SENDER_PORT)
