@@ -19,6 +19,7 @@ DEST_MAC   = "00:00:00:00:00:02"
 
 SENDER_PORT   = [0]
 RECEIVER_PORT = [1]
+Shaping_rate  = 1000 # in Mbps
 
 
 class PortShapingSTL(StatelessTest):
@@ -30,10 +31,7 @@ class PortShapingSTL(StatelessTest):
     # "args" argument.
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
-        parser.add_argument(
-            "--mult", type=str, help="The speed multiplier", default="1pps"
-        )
-        parser.add_argument("--duration", type=float, help="Test duration", default=-1)
+        parser.add_argument("--duration", type=float, help="Test duration", default=10)
 
 
     # The entrypoint of a test
@@ -47,7 +45,7 @@ class PortShapingSTL(StatelessTest):
 
 
         logging.info(
-                "Starting traffic, TX rate: %s, duration: %d sec", args.mult, args.duration,
+                "Starting traffic, duration: %d sec", args.duration,
         )
 
         # Start sending traffic
@@ -58,6 +56,11 @@ class PortShapingSTL(StatelessTest):
 
         # Get statistics for TX and RX ports
         stats = self.client.get_stats()
+        rx_rate = stats[1]['rx_bps'] / (10**6)
+        assert (Shaping_rate*0.95 < rx_rate < Shaping_rate), \
+        "The measured RX rate is not close to the port shaping rate"
+
+
         readable_stats_0 = get_readable_port_stats(stats[0])
         readable_stats_1 = get_readable_port_stats(stats[1])
 
@@ -66,6 +69,3 @@ class PortShapingSTL(StatelessTest):
 
         print ("\n Statistics for RX port: \n")
         print (readable_stats_1)
-
-        #print (json.dumps(stats[0], indent = 4, separators=(',', ': '), sort_keys = True))
-        #print (json.dumps(stats[1], indent = 4, separators=(',', ': '), sort_keys = True))
