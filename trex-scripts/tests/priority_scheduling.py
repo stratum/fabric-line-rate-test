@@ -21,7 +21,7 @@ SENDER_PORT   = [0]
 RECEIVER_PORT = [1]
 
 
-class PortShapingSTL(StatelessTest):
+class PriorityScheduling(StatelessTest):
 
     # setup_subparser is an optional class method
     # You can implement this method if you want to add additional command line
