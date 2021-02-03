@@ -12,7 +12,7 @@ index: 1
 }
 
 vendor_config {
-tofino_config {
+ tofino_config {
   node_id_to_port_shaping_config {
     key: 1
     value {
@@ -20,8 +20,8 @@ tofino_config {
         key:30
         value {
           byte_shaping {
-            max_rate_bps: 1000000000 # 1G
-            max_burst_bytes: 2000 # 2x jumbo frame
+            max_rate_bps: 1000000000 # 1Gbps
+            max_burst_bytes: 160000 # 2x jumbo frame
           }
         }
       }
