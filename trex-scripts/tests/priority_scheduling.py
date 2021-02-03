@@ -20,6 +20,9 @@ DEST_MAC   = "00:00:00:00:00:02"
 SENDER_PORT   = [0]
 RECEIVER_PORT = [1]
 
+# assume maximum latency for delay critical flows
+LATENCY_DC_MAX_uSEC = 100 # in mircoseconds
+
 
 class PriorityScheduling(StatelessTest):
 
@@ -100,6 +103,10 @@ class PriorityScheduling(StatelessTest):
         print("  Maximum latency(usec): {0}".format(tot_max))
         print("  Minimum latency(usec): {0}".format(tot_min))
         print("  Average latency(usec): {0}".format(avg))
+
+
+        assert (avg <= LATENCY_DC_MAX_uSEC), \
+        "The avg latency is greater than the max latency for delay critcial flow"
 
 
         # Get statistics for TX and RX ports
