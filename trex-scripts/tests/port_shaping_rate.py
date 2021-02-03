@@ -19,7 +19,7 @@ DEST_MAC   = "00:00:00:00:00:02"
 
 SENDER_PORT   = [0]
 RECEIVER_PORT = [1]
-Shaping_rate  = 1000 # in Mbps
+SHAPING_RATE_MBPS = 1000 # in Mbps
 
 
 class PortShapingSTL(StatelessTest):
@@ -56,8 +56,8 @@ class PortShapingSTL(StatelessTest):
 
         # Get statistics for TX and RX ports
         stats = self.client.get_stats()
-        rx_rate = stats[1]['rx_bps'] / (10**6)
-        assert (Shaping_rate*0.95 < rx_rate < Shaping_rate), \
+        rx_rate_mbps = stats[1]['rx_bps'] / (10**6)
+        assert (SHAPING_RATE_MBPS*0.95 < rx_rate_mbps < SHAPING_RATE_MBPS), \
         "The measured RX rate is not close to the port shaping rate"
 
 
