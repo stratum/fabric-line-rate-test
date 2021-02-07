@@ -20,12 +20,13 @@ DEST_MAC   = "00:00:00:00:00:02"
 SENDER_PORT   = [0]
 RECEIVER_PORT = [1]
 
-# assume maximum latency for delay critical flows
+# In this test case, we consider two types of flows: 1) delay critical, and 2) best effort
+# assume max. latency for delay critical flows
 LATENCY_DC_MAX_uSEC = 1000   # in mircoseconds
-# assume maximum latency for low priority flows during congestion
-LATENCY_LP_MAX_uSEC = 25500 # in mircoseconds
-# assume average latency for low priority flows during congestion
-LATENCY_LP_AVG_uSEC = 15000 # in mircoseconds
+# assume max. latency for best effort (i.e., low priority flows) traffic during congestion
+# with the priortization of delay critical flows
+LATENCY_LP_MAX_uSEC = 24000 # in mircoseconds
+
 
 
 class PriorityScheduling(StatelessTest):
@@ -83,7 +84,7 @@ class PriorityScheduling(StatelessTest):
         self.client.wait_on_traffic(ports=SENDER_PORT)
 
 
-        # stats for pg_id 5 and 15
+        # stats for pg_id 5 and 10
         stats              = self.client.get_pgid_stats(pgids['latency'])
         flow_stats_5       = stats['flow_stats'].get(5)
         flow_stats_10      = stats['flow_stats'].get(10)
@@ -133,12 +134,11 @@ class PriorityScheduling(StatelessTest):
         print("  Minimum latency(usec): {0}".format(tot_min_10))
         print("  Average latency(usec): {0}".format(avg_10))
 
-        # max latency difference between delay critcal flows with gp id 5 and 15
+        # max latency difference between delay critcal flows of gp id 5 and 10
         dc_max_lat_diff = tot_max_10 - tot_max_5
 
-        assert ((LATENCY_LP_AVG_uSEC <= dc_max_lat_diff <= LATENCY_LP_MAX_uSEC) & (tot_max_5 <= LATENCY_DC_MAX_uSEC)), \
+        assert ((LATENCY_LP_MAX_uSEC - LATENCY_DC_MAX_uSEC) <= dc_max_lat_diff), \
         "Priority scheduling test failed."
-
 
         # Get statistics for TX and RX ports
         stats = self.client.get_stats()

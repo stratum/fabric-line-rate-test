@@ -40,7 +40,6 @@ class PortShapingSTL(StatelessTest):
         pkt = Ether(dst=DEST_MAC) / IP() / TCP() / ("*" * 1500)
         # Create a traffic stream
         stream = STLStream(packet=STLPktBuilder(pkt=pkt, vm=[]), mode=STLTXCont())
-        #stream = STLStream(packet=STLPktBuilder(pkt=pkt, vm=[]), mode=STLTXSingleBurst(total_pkts=5))
         self.client.add_streams(stream, ports=[0])
 
 
