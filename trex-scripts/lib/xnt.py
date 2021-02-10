@@ -78,6 +78,7 @@ class IntL45LocalReport(Packet):
         XIntField("egress_tstamp", 0),
     ]
 
+
 class IntL45DropReport(Packet):
     name = "INT_L45_DROP_REPORT"
     fields_desc = [
@@ -85,8 +86,9 @@ class IntL45DropReport(Packet):
         XShortField("ingress_port_id", 0),
         XShortField("egress_port_id", 0),
         BitField("queue_id", 0, 8),
-        BitField("pad", 0, 24)
+        BitField("pad", 0, 24),
     ]
+
 
 bind_layers(UDP, IntL45ReportFixed, dport=32766)
 bind_layers(IntL45ReportFixed, IntL45DropReport, nproto=1)
@@ -241,7 +243,6 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
             + int.to_bytes(internal_l4.dport, 2, "big")
         )
 
-
         if five_tuple in five_tuple_to_prev_report_time:
             prev_report_time = five_tuple_to_prev_report_time[five_tuple]
             irg = (packet_enter_time - prev_report_time) / 1000000000
@@ -259,7 +260,9 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     # Local report
     log.info("Local reports: {}".format(local_reports))
     log.info("Total 5-tuples: {}".format(len(five_tuple_to_prev_local_report_time)))
-    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_local_reports)))
+    log.info(
+        "Flows with multiple report: {}".format(len(flow_with_multiple_local_reports))
+    )
     log.info("Total INT IRGs: {}".format(len(valid_local_report_irgs)))
     log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_local_report_irgs)))
     log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_local_report_irgs)))
@@ -276,7 +279,9 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
 
     log.info(
         "Efficiency score: {}".format(
-            (len(valid_local_report_irgs) - len(bad_local_report_irgs)) * 100 / len(valid_local_report_irgs)
+            (len(valid_local_report_irgs) - len(bad_local_report_irgs))
+            * 100
+            / len(valid_local_report_irgs)
         )
     )
 
@@ -284,7 +289,9 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     log.info("----------------------")
     log.info("Drop reports: {}".format(drop_reports))
     log.info("Total 5-tuples: {}".format(len(five_tuple_to_prev_drop_report_time)))
-    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_drop_reports)))
+    log.info(
+        "Flows with multiple report: {}".format(len(flow_with_multiple_drop_reports))
+    )
     log.info("Total INT IRGs: {}".format(len(valid_drop_report_irgs)))
     log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_drop_report_irgs)))
     log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_drop_report_irgs)))
@@ -296,6 +303,7 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     plot_histogram_and_cdf(report_plot_file, valid_local_report_irgs)
     report_plot_file = abspath(splitext(pcap_file)[0] + "-drop" + ".png")
     plot_histogram_and_cdf(report_plot_file, valid_drop_report_irgs)
+
 
 def plot_histogram_and_cdf(report_plot_file, valid_report_irgs):
     if exists(report_plot_file):
