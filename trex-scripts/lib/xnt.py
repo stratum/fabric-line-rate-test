@@ -78,10 +78,21 @@ class IntL45LocalReport(Packet):
         XIntField("egress_tstamp", 0),
     ]
 
+class IntL45DropReport(Packet):
+    name = "INT_L45_DROP_REPORT"
+    fields_desc = [
+        XIntField("switch_id", 0),
+        XShortField("ingress_port_id", 0),
+        XShortField("egress_port_id", 0),
+        BitField("queue_id", 0, 8),
+        BitField("pad", 0, 24)
+    ]
 
 bind_layers(UDP, IntL45ReportFixed, dport=32766)
+bind_layers(IntL45ReportFixed, IntL45DropReport, nproto=1)
 bind_layers(IntL45ReportFixed, IntL45LocalReport, nproto=2)
 bind_layers(IntL45LocalReport, Ether)
+bind_layers(IntL45DropReport, Ether)
 
 
 def get_readable_int_report_str(pkt: Packet) -> str:
@@ -136,20 +147,29 @@ def get_readable_int_report_str(pkt: Packet) -> str:
     )
 
 
-def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str:
+def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> None:
     pcap_reader = RawPcapReader(pcap_file)
-    total_reports = 0
     skipped = 0
     dropped = 0  # based on seq number
     prev_seq_no = {}  # HW ID -> seq number
-    five_tuple_to_prev_report_time = {}  # 5-tuple -> latest report time
-    flow_with_multiple_reports = set()
-    valid_irgs = []
-    bad_irgs = []
-    invalid_irgs = []
+
+    # Local report
+    local_reports = 0
+    five_tuple_to_prev_local_report_time = {}  # 5-tuple -> latest report time
+    flow_with_multiple_local_reports = set()
+    valid_local_report_irgs = []
+    bad_local_report_irgs = []
+    invalid_local_report_irgs = []
+
+    # Drop report
+    drop_reports = 0
+    five_tuple_to_prev_drop_report_time = {}  # 5-tuple -> latest report time
+    flow_with_multiple_drop_reports = set()
+    valid_drop_report_irgs = []
+    bad_drop_report_irgs = []
+    invalid_drop_report_irgs = []
 
     while True:
-        # import pdb; pdb.set_trace()
         try:
             packet_info = pcap_reader.next()
         except EOFError:
@@ -159,18 +179,34 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
 
         # packet_info = (raw-bytes, packet-metadata)
         report_pkt = Ether(packet_info[0])
+        packet_enter_time = packet_info[1].sec * 1000000 + packet_info[1].usec
 
         if IntL45ReportFixed not in report_pkt:
             skipped += 1
             continue
 
-        if IntL45LocalReport not in report_pkt:
-            # TODO: handle drop and queue report
+        int_fix_report = report_pkt[IntL45ReportFixed]
+        if IntL45LocalReport in report_pkt:
+            local_reports += 1
+            int_report = report_pkt[IntL45LocalReport]
+            packet_enter_time = int_report.egress_tstamp
+            five_tuple_to_prev_report_time = five_tuple_to_prev_local_report_time
+            flow_with_multiple_reports = flow_with_multiple_local_reports
+            valid_report_irgs = valid_local_report_irgs
+            bad_report_irgs = bad_local_report_irgs
+            invalid_report_irgs = invalid_local_report_irgs
+        elif IntL45DropReport not in report_pkt:
+            drop_reports += 1
+            int_report = report_pkt[IntL45LocalReport]
+            five_tuple_to_prev_report_time = five_tuple_to_prev_drop_report_time
+            flow_with_multiple_reports = flow_with_multiple_drop_reports
+            valid_report_irgs = valid_drop_report_irgs
+            bad_report_irgs = bad_drop_report_irgs
+            invalid_report_irgs = invalid_drop_report_irgs
+        else:
+            # TODO: handle queue report
             skipped += 1
             continue
-
-        int_fix_report = report_pkt[IntL45ReportFixed]
-        int_local_report = report_pkt[IntL45LocalReport]
 
         # Check the sequence number
         hw_id = int_fix_report.hw_id
@@ -179,24 +215,24 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
             dropped += seq_no - prev_seq_no[hw_id] - 1
         prev_seq_no[hw_id] = seq_no
 
+        # Curently we only process IPv4 packets, but we can process IPv6 if needed.
+        if IP not in int_report:
+            skipped += 1
+            continue
+
         # Checks the internal packet
         # Here we skip packets that is not a TCP or UDP packet since they can be
         # fragmented or something else.
 
-        if TCP in int_local_report:
-            internal_l4 = int_local_report[TCP]
-        elif UDP in int_local_report:
-            internal_l4 = int_local_report[UDP]
+        if TCP in int_report:
+            internal_l4 = int_report[TCP]
+        elif UDP in int_report:
+            internal_l4 = int_report[UDP]
         else:
             skipped += 1
             continue
 
-        # Curently we only process IPv4 packets, but we can process IPv6 if needed.
-        if IP not in int_local_report:
-            skipped += 1
-            continue
-
-        internal_ip = int_local_report[IP]
+        internal_ip = int_report[IP]
         five_tuple = (
             inet_aton(internal_ip.src)
             + inet_aton(internal_ip.dst)
@@ -205,62 +241,70 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
             + int.to_bytes(internal_l4.dport, 2, "big")
         )
 
+
         if five_tuple in five_tuple_to_prev_report_time:
             prev_report_time = five_tuple_to_prev_report_time[five_tuple]
-            irg = (int_local_report.egress_tstamp - prev_report_time) / 1000000000
+            irg = (packet_enter_time - prev_report_time) / 1000000000
             if irg > 0:
-                valid_irgs.append(irg)
+                valid_report_irgs.append(irg)
             flow_with_multiple_reports.add(five_tuple)
 
             if 0 < irg and irg < 0.9:
-                bad_irgs.append(irg)
+                bad_report_irgs.append(irg)
             if irg <= 0:
-                invalid_irgs.append(irg)
+                invalid_report_irgs.append(irg)
 
-        five_tuple_to_prev_report_time[five_tuple] = int_local_report.egress_tstamp
-        total_reports += 1
+        five_tuple_to_prev_report_time[five_tuple] = packet_enter_time
 
-    log.info("Reports processed: {}".format(total_reports))
-    log.info("Skipped packets: {}".format(skipped))
-    total_five_tuples = len(five_tuple_to_prev_report_time)
-    log.info("Total 5-tuples: {}".format(total_five_tuples))
-    log.info(
-        "Flows with single report: {}".format(
-            total_five_tuples - len(flow_with_multiple_reports)
-        )
-    )
-    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_reports)))
-    log.info("Total INT IRGs: {}".format(len(valid_irgs)))
-    log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_irgs)))
-    log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_irgs)))
-    log.info("Total report dropped: {}".format(dropped))
-
+    # Local report
+    log.info("Local reports: {}".format(local_reports))
+    log.info("Total 5-tuples: {}".format(len(five_tuple_to_prev_local_report_time)))
+    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_local_reports)))
+    log.info("Total INT IRGs: {}".format(len(valid_local_report_irgs)))
+    log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_local_report_irgs)))
+    log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_local_report_irgs)))
     if total_flows_from_trace != 0:
         log.info(
             "Accuracy score: {}".format(
-                total_five_tuples * 100 / total_flows_from_trace
+                len(five_tuple_to_prev_local_report_time) * 100 / total_flows_from_trace
             )
         )
 
-    if len(valid_irgs) <= 0:
+    if len(valid_local_report_irgs) <= 0:
         log.info("No valid IRGs")
         return
 
     log.info(
         "Efficiency score: {}".format(
-            (len(valid_irgs) - len(bad_irgs)) * 100 / len(valid_irgs)
+            (len(valid_local_report_irgs) - len(bad_local_report_irgs)) * 100 / len(valid_local_report_irgs)
         )
     )
 
+    # Drop report
+    log.info("----------------------")
+    log.info("Drop reports: {}".format(drop_reports))
+    log.info("Total 5-tuples: {}".format(len(five_tuple_to_prev_drop_report_time)))
+    log.info("Flows with multiple report: {}".format(len(flow_with_multiple_drop_reports)))
+    log.info("Total INT IRGs: {}".format(len(valid_drop_report_irgs)))
+    log.info("Total bad INT IRGs(<0.9s): {}".format(len(bad_drop_report_irgs)))
+    log.info("Total invalid INT IRGs(<=0s): {}".format(len(invalid_drop_report_irgs)))
+    log.info("Total report dropped: {}".format(dropped))
+    log.info("Skipped packets: {}".format(skipped))
+
     # Plot Histogram and CDF
-    report_plot_file = abspath(splitext(pcap_file)[0] + ".png")
+    report_plot_file = abspath(splitext(pcap_file)[0] + "-local" + ".png")
+    plot_histogram_and_cdf(report_plot_file, valid_local_report_irgs)
+    report_plot_file = abspath(splitext(pcap_file)[0] + "-drop" + ".png")
+    plot_histogram_and_cdf(report_plot_file, valid_drop_report_irgs)
+
+def plot_histogram_and_cdf(report_plot_file, valid_report_irgs):
     if exists(report_plot_file):
         os.remove(report_plot_file)
     bin_size = 0.25  # sec
-    max_val = max(np.max(valid_irgs), 3)
-    percentile_of_900_msec = stats.percentileofscore(valid_irgs, 0.9)
-    percentile_of_one_sec = stats.percentileofscore(valid_irgs, 1)
-    percentile_of_two_sec = stats.percentileofscore(valid_irgs, 2)
+    max_val = max(np.max(valid_report_irgs), 3)
+    percentile_of_900_msec = stats.percentileofscore(valid_report_irgs, 0.9)
+    percentile_of_one_sec = stats.percentileofscore(valid_report_irgs, 1)
+    percentile_of_two_sec = stats.percentileofscore(valid_report_irgs, 2)
     percentiles = [
         1,
         5,
@@ -269,10 +313,10 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> str
         percentile_of_one_sec,
         percentile_of_two_sec,
     ]
-    vlines = np.percentile(valid_irgs, percentiles)
+    vlines = np.percentile(valid_report_irgs, percentiles)
 
     bins = np.arange(0, max_val + bin_size, bin_size)
-    hist, bins = np.histogram(valid_irgs, bins=bins)
+    hist, bins = np.histogram(valid_report_irgs, bins=bins)
 
     # to percentage
     hist = hist / hist.sum()
