@@ -22,10 +22,10 @@ RECEIVER_PORT = [1]
 
 # In this test case, we consider two types of flows: 1) delay critical, and 2) best effort
 # assume max. latency for delay critical flows
-LATENCY_DC_MAX_uSEC = 1000   # in mircoseconds
+LATENCY_DC_MAX_USEC = 1000   # in mircoseconds
 # assume max. latency for best effort (i.e., low priority flows) traffic during congestion
 # with the priortization of delay critical flows
-LATENCY_LP_MAX_uSEC = 24000 # in mircoseconds
+LATENCY_LP_MAX_USEC = 24000 # in mircoseconds
 
 
 
@@ -54,11 +54,11 @@ class PriorityScheduling(StatelessTest):
 
         # Create a traffic stream
         # assume s1 is a delay critical stream with QoS
-        s1 = STLStream( packet=STLPktBuilder(pkt=pkt1), mode=STLTXCont(percentage = 1), flow_stats = STLFlowLatencyStats(pg_id = 5))
+        s1 = STLStream( packet=STLPktBuilder(pkt=pkt1), mode=STLTXCont(percentage = 1), flow_stats = STLFlowLatencyStats(pg_id = 1))
         # assume s2 is a delay critical stream without QoS
-        s2 = STLStream( packet=STLPktBuilder(pkt=pkt2), mode=STLTXCont(percentage = 1), flow_stats = STLFlowLatencyStats(pg_id = 10))
+        s2 = STLStream( packet=STLPktBuilder(pkt=pkt2), mode=STLTXCont(percentage = 1), flow_stats = STLFlowLatencyStats(pg_id = 2))
         # assume s3 is a lower priority stream
-        s3 = STLStream( packet=STLPktBuilder(pkt=pkt3), mode=STLTXCont(percentage = 98), flow_stats = STLFlowLatencyStats(pg_id = 15))
+        s3 = STLStream( packet=STLPktBuilder(pkt=pkt3), mode=STLTXCont(percentage = 98), flow_stats = STLFlowLatencyStats(pg_id = 3))
 
 
         # prepare ports
@@ -84,60 +84,60 @@ class PriorityScheduling(StatelessTest):
         self.client.wait_on_traffic(ports=SENDER_PORT)
 
 
-        # stats for pg_id 5 and 10
+        # stats for pg_id 1 and 2
         stats              = self.client.get_pgid_stats(pgids['latency'])
-        flow_stats_5       = stats['flow_stats'].get(5)
-        flow_stats_10      = stats['flow_stats'].get(10)
+        flow_stats_1       = stats['flow_stats'].get(1)
+        flow_stats_2       = stats['flow_stats'].get(2)
         global_lat_stats   = stats['latency']
-        lat_stats_5        = global_lat_stats.get(5)
-        lat_stats_10       = global_lat_stats.get(10)
+        lat_stats_1        = global_lat_stats.get(1)
+        lat_stats_2        = global_lat_stats.get(2)
 
-        tx_pkts_5  = flow_stats_5['tx_pkts'].get(0, 0)
-        rx_pkts_5  = flow_stats_5['rx_pkts'].get(1, 0)
-        drops_5    = lat_stats_5['err_cntrs']['dropped']
+        tx_pkts_1  = flow_stats_1['tx_pkts'].get(0, 0)
+        rx_pkts_1  = flow_stats_1['rx_pkts'].get(1, 0)
+        drops_1    = lat_stats_1['err_cntrs']['dropped']
 
-        tx_pkts_10  = flow_stats_10['tx_pkts'].get(0, 0)
-        rx_pkts_10  = flow_stats_10['rx_pkts'].get(1, 0)
-        drops_10    = lat_stats_10['err_cntrs']['dropped']
+        tx_pkts_2  = flow_stats_2['tx_pkts'].get(0, 0)
+        rx_pkts_2  = flow_stats_2['rx_pkts'].get(1, 0)
+        drops_2    = lat_stats_2['err_cntrs']['dropped']
 
-        print(" \n TX and RX flow stats and packet dopped for pg id 5 (i.e., delay critical): ")
-        print("  tx packets: {0}".format(tx_pkts_5))
-        print("  tx bytes : {0}".format(tx_pps_5))
-        print("  rx packets : {0}".format(rx_pkts_5))
-        print("  drops: {0}".format(drops_5))
+        print(" \n TX and RX flow stats and packets dropped for s1 (i.e., delay critical): ")
+        print("  tx packets: {0}".format(tx_pkts_1))
+        print("  tx bytes : {0}".format(tx_pps_1))
+        print("  rx packets : {0}".format(rx_pkts_1))
+        print("  drops: {0}".format(drops_1))
 
-        print(" \n TX and RX flow stats and packet dopped for pg id 10 (i.e., delay critical): ")
-        print("  tx packets: {0}".format(tx_pkts_10))
-        print("  tx bytes : {0}".format(tx_pps_10))
-        print("  rx packets : {0}".format(rx_pkts_10))
-        print("  drops: {0}".format(drops_10))
+        print(" \n TX and RX flow stats and packets dropped for s2 (i.e., delay critical): ")
+        print("  tx packets: {0}".format(tx_pkts_2))
+        print("  tx bytes : {0}".format(tx_pps_2))
+        print("  rx packets : {0}".format(rx_pkts_2))
+        print("  drops: {0}".format(drops_2))
 
-        # latency info for pg_id 5
-        lat_5     = lat_stats_5['latency']
-        avg_5     = lat_5['average']
-        tot_max_5 = lat_5['total_max']
-        tot_min_5 = lat_5['total_min']
+        # latency info for s1
+        lat_1     = lat_stats_1['latency']
+        avg_1     = lat_1['average']
+        tot_max_1 = lat_1['total_max']
+        tot_min_1 = lat_1['total_min']
 
-        # latency info for pg_id 10
-        lat_10     = lat_stats_10['latency']
-        avg_10     = lat_10['average']
-        tot_max_10 = lat_10['total_max']
-        tot_min_10 = lat_10['total_min']
+        # latency info for s2
+        lat_2     = lat_stats_2['latency']
+        avg_2     = lat_2['average']
+        tot_max_2 = lat_2['total_max']
+        tot_min_2 = lat_2['total_min']
 
-        print('\n Latency info for pg id 5 (ie., delay critical with QoS):')
-        print("  Maximum latency(usec): {0}".format(tot_max_5))
-        print("  Minimum latency(usec): {0}".format(tot_min_5))
-        print("  Average latency(usec): {0}".format(avg_5))
+        print('\n Latency info for s1 (ie., delay critical with QoS):')
+        print("  Maximum latency(usec): {0}".format(tot_max_1))
+        print("  Minimum latency(usec): {0}".format(tot_min_1))
+        print("  Average latency(usec): {0}".format(avg_1))
 
-        print('\n Latency info for pg id 10 (ie., delay critical without QoS):')
-        print("  Maximum latency(usec): {0}".format(tot_max_10))
-        print("  Minimum latency(usec): {0}".format(tot_min_10))
-        print("  Average latency(usec): {0}".format(avg_10))
+        print('\n Latency info for s2 (ie., delay critical without QoS):')
+        print("  Maximum latency(usec): {0}".format(tot_max_2))
+        print("  Minimum latency(usec): {0}".format(tot_min_2))
+        print("  Average latency(usec): {0}".format(avg_2))
 
-        # max latency difference between delay critcal flows of gp id 5 and 10
-        dc_max_lat_diff = tot_max_10 - tot_max_5
+        # max latency difference between delay critcal streams s1 and s2
+        dc_max_lat_diff = tot_max_2 - tot_max_1
 
-        assert ((LATENCY_LP_MAX_uSEC - LATENCY_DC_MAX_uSEC) <= dc_max_lat_diff), \
+        assert ((LATENCY_LP_MAX_USEC - LATENCY_DC_MAX_USEC) <= dc_max_lat_diff), \
         "Priority scheduling test failed."
 
         # Get statistics for TX and RX ports
