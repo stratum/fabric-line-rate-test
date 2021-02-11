@@ -1,5 +1,3 @@
-channel: 1
-                                                                23,13         Top
 description: "Chassis Config for Menlo PDP 32QS"
 chassis {
 platform: PLT_GENERIC_BAREFOOT_TOFINO
@@ -10,7 +8,6 @@ id: 1
 slot: 1
 index: 1
 }
-
 vendor_config {
   tofino_config {
     node_id_to_port_shaping_config {
