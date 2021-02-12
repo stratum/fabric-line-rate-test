@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2020-present Open Networking Foundation.
+# SPDX-License-Identifier: Apache-2.0
+
 description: "Chassis Config for Menlo PDP 32QS"
 chassis {
 platform: PLT_GENERIC_BAREFOOT_TOFINO
