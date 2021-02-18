@@ -203,6 +203,6 @@ For more information, check the [Trex stateless SDK manual](trex-stateless-sdk) 
 [trex-manual]: https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_platform_yaml_cfg_argument
 [venv]: https://docs.python.org/3.8/library/venv.html
 [stratum-guide]: https://github.com/stratum/stratum/blob/master/stratum/hal/bin/barefoot/README.md
-[onos-ui]: http://127.0.0.1:8181/onos/ui
+[onos-ui]: http://127.0.0.1:18181/onos/ui
 [trex-stateless-sdk]: https://trex-tgn.cisco.com/trex/doc/cp_stl_docs/index.html
 [trex-cookbook]: https://trex-tgn.cisco.com/trex/doc/trex_cookbook/index.html

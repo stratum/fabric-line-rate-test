@@ -64,15 +64,15 @@ onos-logs:
 	@docker-compose -f tost/docker-compose.yaml logs -f
 
 onos-cli: tmp/keys/id_rsa
-	@ssh -o StrictHostKeyChecking=no -p 8101 -i tmp/keys/id_rsa $(USER)@127.0.0.1
+	@ssh -o StrictHostKeyChecking=no -p 18101 -i tmp/keys/id_rsa $(USER)@127.0.0.1
 
 onos-ui:
-	open http://127.0.0.1:8181/onos/ui
+	open http://127.0.0.1:18181/onos/ui
 
 netcfg:
 	@curl --fail -sSL --user onos:rocks --noproxy localhost \
 		-X POST -H 'Content-Type:application/json' \
-		http://localhost:8181/onos/v1/network/configuration -d@./tost/netcfg.json
+		http://localhost:18181/onos/v1/network/configuration -d@./tost/netcfg.json
 
 clean:
 	-rm -rf tmp
