@@ -93,8 +93,8 @@ class IntL45DropReport(Packet):
 bind_layers(UDP, IntL45ReportFixed, dport=32766)
 bind_layers(IntL45ReportFixed, IntL45DropReport, nproto=1)
 bind_layers(IntL45ReportFixed, IntL45LocalReport, nproto=2)
-bind_layers(IntL45LocalReport, Ether)
 bind_layers(IntL45DropReport, Ether)
+bind_layers(IntL45LocalReport, Ether)
 
 
 def get_readable_int_report_str(pkt: Packet) -> str:
@@ -170,7 +170,7 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     valid_drop_report_irgs = []
     bad_drop_report_irgs = []
     invalid_drop_report_irgs = []
-
+    pkt_processed = 0
     while True:
         try:
             packet_info = pcap_reader.next()
@@ -178,10 +178,12 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
             break
         except StopIteration:
             break
+        pkt_processed += 1
 
         # packet_info = (raw-bytes, packet-metadata)
         report_pkt = Ether(packet_info[0])
-        packet_enter_time = packet_info[1].sec * 1000000 + packet_info[1].usec
+        # packet enter time in nano seconds
+        packet_enter_time = packet_info[1].sec * 1000000000 + packet_info[1].usec * 1000
 
         if IntL45ReportFixed not in report_pkt:
             skipped += 1
@@ -197,9 +199,9 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
             valid_report_irgs = valid_local_report_irgs
             bad_report_irgs = bad_local_report_irgs
             invalid_report_irgs = invalid_local_report_irgs
-        elif IntL45DropReport not in report_pkt:
+        elif IntL45DropReport in report_pkt:
             drop_reports += 1
-            int_report = report_pkt[IntL45LocalReport]
+            int_report = report_pkt[IntL45DropReport]
             five_tuple_to_prev_report_time = five_tuple_to_prev_drop_report_time
             flow_with_multiple_reports = flow_with_multiple_drop_reports
             valid_report_irgs = valid_drop_report_irgs
@@ -236,11 +238,11 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
 
         internal_ip = int_report[IP]
         five_tuple = (
-            inet_aton(internal_ip.src)
-            + inet_aton(internal_ip.dst)
-            + int.to_bytes(internal_ip.proto, 1, "big")
-            + int.to_bytes(internal_l4.sport, 2, "big")
-            + int.to_bytes(internal_l4.dport, 2, "big")
+            inet_aton(internal_ip.src),
+            inet_aton(internal_ip.dst),
+            int.to_bytes(internal_ip.proto, 1, "big"),
+            int.to_bytes(internal_l4.sport, 2, "big"),
+            int.to_bytes(internal_l4.dport, 2, "big")
         )
 
         if five_tuple in five_tuple_to_prev_report_time:
@@ -257,6 +259,7 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
 
         five_tuple_to_prev_report_time[five_tuple] = packet_enter_time
 
+    log.info("Pkt processed: {}".format(pkt_processed))
     # Local report
     log.info("Local reports: {}".format(local_reports))
     log.info("Total 5-tuples: {}".format(len(five_tuple_to_prev_local_report_time)))
@@ -274,16 +277,18 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
         )
 
     if len(valid_local_report_irgs) <= 0:
-        log.info("No valid IRGs")
-        return
-
-    log.info(
-        "Efficiency score: {}".format(
-            (len(valid_local_report_irgs) - len(bad_local_report_irgs))
-            * 100
-            / len(valid_local_report_irgs)
+        log.info("No valid local report IRGs")
+    else:
+        log.info(
+            "Efficiency score: {}".format(
+                (len(valid_local_report_irgs) - len(bad_local_report_irgs))
+                * 100
+                / len(valid_local_report_irgs)
+            )
         )
-    )
+        # Plot Histogram and CDF
+        report_plot_file = abspath(splitext(pcap_file)[0] + "-local" + ".png")
+        plot_histogram_and_cdf(report_plot_file, valid_local_report_irgs)
 
     # Drop report
     log.info("----------------------")
@@ -298,11 +303,11 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     log.info("Total report dropped: {}".format(dropped))
     log.info("Skipped packets: {}".format(skipped))
 
-    # Plot Histogram and CDF
-    report_plot_file = abspath(splitext(pcap_file)[0] + "-local" + ".png")
-    plot_histogram_and_cdf(report_plot_file, valid_local_report_irgs)
-    report_plot_file = abspath(splitext(pcap_file)[0] + "-drop" + ".png")
-    plot_histogram_and_cdf(report_plot_file, valid_drop_report_irgs)
+    if len(valid_drop_report_irgs) <= 0:
+        log.info("No valid drop report IRGs")
+    else:
+        report_plot_file = abspath(splitext(pcap_file)[0] + "-drop" + ".png")
+        plot_histogram_and_cdf(report_plot_file, valid_drop_report_irgs)
 
 
 def plot_histogram_and_cdf(report_plot_file, valid_report_irgs):
