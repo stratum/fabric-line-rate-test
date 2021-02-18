@@ -306,6 +306,13 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
     if len(valid_drop_report_irgs) <= 0:
         log.info("No valid drop report IRGs")
     else:
+        log.info(
+            "Efficiency score: {}".format(
+                (len(valid_drop_report_irgs) - len(bad_drop_report_irgs))
+                * 100
+                / len(valid_drop_report_irgs)
+            )
+        )
         report_plot_file = abspath(splitext(pcap_file)[0] + "-drop" + ".png")
         plot_histogram_and_cdf(report_plot_file, valid_drop_report_irgs)
 
