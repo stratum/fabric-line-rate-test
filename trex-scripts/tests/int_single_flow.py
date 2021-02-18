@@ -79,6 +79,7 @@ class IntSingleFlow(StatelessTest):
         output = "/tmp/int-single-flow-{}-{}.pcap".format(
             args.pkt_type, datetime.now().strftime("%Y%m%d-%H%M%S")
         )
+        logging.info("Capture file {}".format(output))
         self.client.stop_capture(capture["id"], output)
         analysis_report_pcap(output)
         list_port_status(self.client.get_stats())
