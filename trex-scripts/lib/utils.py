@@ -117,3 +117,16 @@ class ParseExtendArgAction(argparse.Action):
         key = value.split("=")[0]
         val = value.split("=")[1]
         namespace.test_args[key] = val
+
+
+# Convert integer (with length) to binary byte string
+def stringify(n, length):
+    return n.to_bytes(length, byteorder="big")
+
+
+def ipv4_to_binary(addr):
+    return socket.inet_aton(addr)
+
+
+def mac_to_binary(addr):
+    return bytes.fromhex(addr.replace(":", ""))

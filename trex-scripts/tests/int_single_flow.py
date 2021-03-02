@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 
 from lib.base_test import StatelessTest
+from lib.fabric_tna import *
 from lib.gtpu import GTPU
 from lib.utils import list_port_status
 from lib.xnt import analysis_report_pcap
@@ -14,17 +15,28 @@ from trex_stl_lib.api import STLPktBuilder, STLStream, STLTXCont
 
 SOURCE_MAC = "00:00:00:00:00:01"
 DEST_MAC = "00:00:00:00:00:03"
+COL_MAC = "00:00:00:00:00:04"
+COL_IP = "192.168.40.1"
+SWITCH_MAC = "c0:ff:ee:c0:ff:ee"
 SOURCE_IP = "192.168.10.1"
 DEST_IP = "192.168.30.1"
+SWITCH_IP = "192.168.40.254"
 INNER_SRC_IP = "10.240.0.1"
 INNER_DEST_IP = "8.8.8.8"
+IP_PREFIX = 32
 SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
+SWITCH_PORTS = [272, 280, 256, 264]  # 29, 30, 31, 32
+DEFAULT_VLAN = 10
+SWITCH_ID = 1
+INT_REPORT_MIRROR_IDS = [300, 301, 302, 303]
+RECIRC_PORTS = [68, 196, 324, 452]
 
 
-class IntSingleFlow(StatelessTest):
+class IntSingleFlow(StatelessTest, FabricTnaTest):
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
+        FabricTnaTest.setup_subparser(parser)
         parser.add_argument("--duration", type=int, help="Test duration", default=5)
         parser.add_argument(
             "--mult", type=str, help="Traffic multiplier", default="1pps"
@@ -33,10 +45,15 @@ class IntSingleFlow(StatelessTest):
 
     def get_sample_packet(self, pkt_type):
         if pkt_type == "tcp":
-            return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / TCP() / ("*" * 1500)
+            return (
+                Ether(src=SOURCE_MAC, dst=SWITCH_MAC)
+                / IP(src=SOURCE_IP, dst=DEST_IP)
+                / TCP()
+                / ("*" * 1500)
+            )
         elif pkt_type == "gtpu-udp":
             return (
-                Ether()
+                Ether(src=SOURCE_MAC, dst=SWITCH_MAC)
                 / IP(src=SOURCE_IP, dst=DEST_IP)
                 / UDP()
                 / GTPU()
@@ -45,9 +62,51 @@ class IntSingleFlow(StatelessTest):
                 / ("*" * 1500)
             )
         else:
-            return Ether() / IP(src=SOURCE_IP, dst=DEST_IP) / UDP() / ("*" * 1500)
+            # UDP
+            return (
+                Ether(src=SOURCE_MAC, dst=SWITCH_MAC)
+                / IP(src=SOURCE_IP, dst=DEST_IP)
+                / UDP()
+                / ("*" * 1500)
+            )
+
+    def set_up_flows(self) -> None:
+        # Filtering rules
+        for i in range(0, 4):
+            self.set_up_port(SWITCH_PORTS[i], DEFAULT_VLAN)
+            self.set_forwarding_type(
+                SWITCH_PORTS[i],
+                SWITCH_MAC,
+                ethertype=ETH_TYPE_IPV4,
+                fwd_type=FORWARDING_TYPE_UNICAST_IPV4,
+            )
+        # Forwarding rules
+        self.add_forwarding_routing_v4_entry(DEST_IP, IP_PREFIX, 100)
+        self.add_forwarding_routing_v4_entry(COL_IP, IP_PREFIX, 101)
+
+        # Next rules
+        # Send to the dest host
+        self.add_next_routing(100, SWITCH_PORTS[1], SWITCH_MAC, DEST_MAC)
+        # Send to the collector
+        self.add_next_routing(101, SWITCH_PORTS[3], SWITCH_MAC, COL_MAC)
+        self.add_next_vlan(100, DEFAULT_VLAN)
+        self.add_next_vlan(101, DEFAULT_VLAN)
+        # INT rules
+        self.set_up_watchlist_flow(SOURCE_IP, DEST_IP)
+        self.set_up_int_mirror_flow(SWITCH_ID)
+        self.set_up_report_flow(SWITCH_MAC, COL_MAC, SWITCH_IP, COL_IP, SWITCH_PORTS[3])
+
+        for i in range(0, 4):
+            self.set_up_report_mirror_flow(INT_REPORT_MIRROR_IDS[i], RECIRC_PORTS[i])
 
     def start(self, args) -> None:
+        if args.set_up_flows:
+            self.connect(
+                grpc_addr=args.switch_addr,
+                p4info=args.p4info,
+                pipeline_config=args.pipeline_config,
+            )
+            self.set_up_flows()
         pkt = self.get_sample_packet(args.pkt_type)
         if not pkt:
             return 1
@@ -82,3 +141,6 @@ class IntSingleFlow(StatelessTest):
         self.client.stop_capture(capture["id"], output)
         analysis_report_pcap(output)
         list_port_status(self.client.get_stats())
+
+    def stop(self):
+        self.disconnect()

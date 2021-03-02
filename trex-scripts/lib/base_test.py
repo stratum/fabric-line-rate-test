@@ -19,6 +19,17 @@ class BaseTest(ABC):
         """
         pass
 
+    @abstractmethod
+    def stop(self) -> None:
+        """
+        Stop the test, will always be called after the test.
+
+        :parameters:
+            args: dict
+                The test arguments
+        """
+        pass
+
     @abstractclassmethod
     def test_type(cls) -> str:
         """

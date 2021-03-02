@@ -7,14 +7,27 @@ from argparse import ArgumentParser
 from datetime import datetime
 
 from lib.base_test import StatelessTest
+from lib.fabric_tna import *
 from lib.utils import list_port_status
 from lib.xnt import analysis_report_pcap
 
+UPSTREAM_ROUTER_MAC = "00:00:00:00:00:03"
+COLLECTOR_MAC = "00:00:00:00:00:04"
+COLLECTOR_IP = "192.168.40.1"
+SWITCH_MAC = "c0:ff:ee:c0:ff:ee"
+SOURCE_IP = "192.168.10.1"
+SWITCH_IP = "192.168.40.254"
+
 SENDER_PORTS = [0]
 INT_COLLECTPR_PORTS = [3]
+SWITCH_PORTS = [272, 280, 256, 264]  # 29, 30, 31, 32
+DEFAULT_VLAN = 10
+SWITCH_ID = 1
+INT_REPORT_MIRROR_IDS = [300, 301, 302, 303]
+RECIRC_PORTS = [68, 196, 324, 452]
 
 
-class RemotePcap(StatelessTest):
+class RemotePcap(StatelessTest, FabricTnaTest):
 
     # setup_subparser is an optional class method
     # You can implement this method if you want to add additional command line
@@ -23,6 +36,7 @@ class RemotePcap(StatelessTest):
     # "args" argument.
     @classmethod
     def setup_subparser(cls, parser: ArgumentParser) -> None:
+        FabricTnaTest.setup_subparser(parser)
         parser.add_argument(
             "--remote-pcap-file-dir",
             type=str,
@@ -51,8 +65,59 @@ class RemotePcap(StatelessTest):
             + "analysis the accuracy score",
         )
 
+    def set_up_flows(self) -> None:
+        # Filtering rules
+        for i in range(0, 4):
+            self.set_up_port(SWITCH_PORTS[i], DEFAULT_VLAN)
+            self.set_forwarding_type(
+                SWITCH_PORTS[i],
+                SWITCH_MAC,
+                ethertype=ETH_TYPE_IPV4,
+                fwd_type=FORWARDING_TYPE_UNICAST_IPV4,
+            )
+        # Forwarding rules
+        self.add_forwarding_routing_v4_entry("0.0.0.0", 1, 100)
+        self.add_forwarding_routing_v4_entry("128.0.0.0", 1, 100)
+        self.add_forwarding_routing_v4_entry(COLLECTOR_IP, 32, 101)
+
+        # Next rules
+        # Send to the upstream router
+        self.add_next_routing(100, SWITCH_PORTS[2], SWITCH_MAC, UPSTREAM_ROUTER_MAC)
+        # Send to the collector
+        self.add_next_routing(101, SWITCH_PORTS[3], SWITCH_MAC, COLLECTOR_MAC)
+        self.add_next_vlan(100, DEFAULT_VLAN)
+        self.add_next_vlan(101, DEFAULT_VLAN)
+        # INT rules
+        self.set_up_watchlist_flow(
+            ipv4_src="0.0.0.0",
+            ipv4_src_mask="128.0.0.0",
+            ipv4_dst="0.0.0.0",
+            ipv4_dst_mask="128.0.0.0",
+        )
+        self.set_up_watchlist_flow(
+            ipv4_src="128.0.0.0",
+            ipv4_src_mask="128.0.0.0",
+            ipv4_dst="128.0.0.0",
+            ipv4_dst_mask="128.0.0.0",
+        )
+        self.set_up_int_mirror_flow(SWITCH_ID)
+        self.set_up_report_flow(
+            SWITCH_MAC, COLLECTOR_MAC, SWITCH_IP, COLLECTOR_IP, SWITCH_PORTS[3]
+        )
+
+        for i in range(0, 4):
+            self.set_up_report_mirror_flow(INT_REPORT_MIRROR_IDS[i], RECIRC_PORTS[i])
+
     # The entrypoint of a test
     def start(self, args: dict) -> None:
+        if args.set_up_flows:
+            self.connect(
+                grpc_addr=args.switch_addr,
+                p4info=args.p4info,
+                pipeline_config=args.pipeline_config,
+            )
+            self.set_up_flows()
+
         logging.info(
             "Start capturing first %s RX packet from INT collector", args.capture_limit
         )
@@ -94,3 +159,6 @@ class RemotePcap(StatelessTest):
         logging.info("INT report pcap file stored in {}".format(output))
         logging.info("Analyzing report pcap file...")
         analysis_report_pcap(output, args.total_flows)
+
+    def stop(self):
+        self.disconnect()
