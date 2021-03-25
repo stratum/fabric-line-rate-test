@@ -10,9 +10,9 @@
       },
       "basic": {
         "name": "Leaf 1",
-        "managementAddress": "grpc://10.128.13.29:9339?device_id=1",
+        "managementAddress": "grpc://10.128.13.29:9559?device_id=1",
         "driver": "stratum-tofino",
-        "pipeconf": "org.stratumproject.fabric-spgw-int.mavericks_sde_9_2_0",
+        "pipeconf": "org.stratumproject.fabric-spgw-int.mavericks_sde_9_3_1",
         "locType": "grid",
         "gridX": 300,
         "gridY": 600
@@ -124,7 +124,10 @@
       "report": {
         "collectorIp": "192.168.40.1",
         "collectorPort": 32766,
-        "minFlowHopLatencyChangeNs": 256
+        "minFlowHopLatencyChangeNs": 256,
+        "subnets": [
+          "192.168.30.1/32"
+        ]
       }
     }
   }
