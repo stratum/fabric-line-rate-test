@@ -20,7 +20,7 @@ SENDER_PORTS = [0, 1]
 INT_COLLECTPR_PORTS = [3]
 
 
-class IntSingleFlow(StatelessTest):
+class Congestion(StatelessTest):
     """
     Sends two high speed traffic(e.g., 40G) into a low speed traffic port(e.g., 10G)
     """
@@ -50,7 +50,7 @@ class IntSingleFlow(StatelessTest):
         capture = self.client.start_capture(
             rx_ports=INT_COLLECTPR_PORTS,
             limit=pkt_capture_limit,
-            # bpf_filter="udp and dst port 32766",
+            bpf_filter="udp and dst port 32766",
         )
 
         logging.info(
