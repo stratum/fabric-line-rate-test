@@ -126,7 +126,7 @@
         "collectorPort": 32766,
         "minFlowHopLatencyChangeNs": 256,
         "subnets": [
-          "192.168.30.1/32"
+          "0.0.0.0/0"
         ]
       }
     }
