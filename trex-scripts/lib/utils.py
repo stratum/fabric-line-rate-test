@@ -42,7 +42,8 @@ def get_readable_port_stats(port_stats: str) -> str:
     rx_pps = port_stats.get("rx_pps", 0)
     rx_bps_L1 = port_stats.get("rx_bps_L1", 0)
     rx_util = port_stats.get("rx_util", 0)
-    return """Output packets: {}
+    return """
+    Output packets: {}
     Input packets: {}
     Output bytes: {} ({})
     Input bytes: {} ({})
