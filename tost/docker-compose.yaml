@@ -5,11 +5,11 @@ version: "3"
 
 services:
   tost:
-    image: registry.aetherproject.org/tost/tost:stable-2021-02-08
+    image: registry.aetherproject.org/tost/tost:master-2021-04-06
     hostname: tost
     container_name: tost
     ports:
       - "18181:8181" # HTTP
       - "18101:8101" # SSH (CLI)
     environment:
-      - ONOS_APPS=gui,drivers.barefoot,drivers.stratum,netcfghostprovider,org.stratumproject.fabric-tna,segmentrouting,inbandtelemetry
+      - ONOS_APPS=gui,drivers.barefoot,drivers.stratum,netcfghostprovider,org.stratumproject.fabric-tna,segmentrouting,inbandtelemetry,up4

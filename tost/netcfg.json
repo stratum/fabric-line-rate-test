@@ -10,7 +10,7 @@
       },
       "basic": {
         "name": "Leaf 1",
-        "managementAddress": "grpc://10.128.13.29:9559?device_id=1",
+        "managementAddress": "grpc://10.128.13.29:28005?device_id=1",
         "driver": "stratum-tofino",
         "pipeconf": "org.stratumproject.fabric-spgw-int.mavericks_sde_9_3_1",
         "locType": "grid",
@@ -128,6 +128,13 @@
         "subnets": [
           "0.0.0.0/0"
         ]
+      }
+    },
+    "org.omecproject.up4" : {
+      "up4" : {
+        "deviceId" : "device:leaf1",
+        "s1uAddr" : "10.64.5.126",
+        "uePools" : [ "10.250.0.0/16" ]
       }
     }
   }
