@@ -4,7 +4,7 @@
 .PHONY: stratum-replay
 
 current_dir=$(abspath $(dir $(MAKEFILE_LIST)))
-IMAGE:=fabric-line-rate-test:0.0.1
+IMAGE:=stratumproject/testvectors:ptf
 SERVER_ADDR?=10.128.13.27
 SWITCH_ADDR?=10.128.13.29
 TEST?=int_single_flow
@@ -13,9 +13,6 @@ TREX_SCRIPTS:=$(current_dir)/trex-scripts
 
 default:
 	@echo "Nothing here"
-
-build-image:
-	@docker build -t $(IMAGE) . -f Dockerfile
 
 .venv:
 	@python3 -m venv .venv

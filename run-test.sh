@@ -5,7 +5,7 @@
 set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-IMAGE="fabric-line-rate-test:0.0.1"
+IMAGE="stratumproject/testvectors:ptf"
 TEST_ARGS=()
 
 mkdir -p "${DIR}/tmp"
@@ -32,5 +32,7 @@ docker run --rm \
            -v "${DIR}/tools:/workspace/tools" \
            -v "${DIR}/tmp:/tmp" \
            -w /workspace \
+           --mount "type=bind,source=$PWD/entrypoint.sh,target=/entrypoint.sh" \
+           --entrypoint /entrypoint.sh \
            "${IMAGE}" \
            "${TEST_ARGS[@]}"
