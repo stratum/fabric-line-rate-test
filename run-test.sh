@@ -32,5 +32,7 @@ docker run --rm \
            -v "${DIR}/tools:/workspace/tools" \
            -v "${DIR}/tmp:/tmp" \
            -w /workspace \
+           --mount "type=bind,source=$PWD/entrypoint.sh,target=/entrypoint.sh" \
+           --entrypoint /entrypoint.sh \
            "${IMAGE}" \
            "${TEST_ARGS[@]}"
