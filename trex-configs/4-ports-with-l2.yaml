@@ -3,7 +3,7 @@
 
 - version: 2
   port_limit: 4
-  interfaces: ['3b:00.1', '3b:00.0', '86:00.1', '86:00.0']
+  interfaces: ['5e:00.0', '5e:00.1', '3b:00.1', '3b:00.0']
   port_bandwidth_gb: 40
   c: 16
   port_info:
