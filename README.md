@@ -116,7 +116,7 @@ For INT test, remember to add INT watch list rules via [ONOS web UI](onos-ui).
 To run a test, use following command:
 
 ```bash
-./run-test.sh --server-addr 8090 --trex-config trex-configs/4-ports-with-l2.yaml port_shaping_rate
+./run-test.sh --server-addr [public IP of server] --trex-config trex-configs/4-ports-with-l2.yaml port_shaping_rate
 ```
 
 The `run-test.sh` script will start a base container which includes all necessary
