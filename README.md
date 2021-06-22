@@ -15,7 +15,7 @@ Scripts and configs to run line rate test
 
 - make
 - Docker (Tested with 19.03.13 on MacOS)
-- Trex 2.85 (On the server)
+- Trex 2.85 (On the server, installed in $TREX_ROOT)
 
 ## Repository structure
 
@@ -81,7 +81,7 @@ To run a test, you need to:
 To start Trex daemon, run the following command on the server
 
 ```bash
-cd [trex root]/scripts
+cd $TREX_ROOT/scripts
 sudo ./trex_daemon_server start[-live]
 ```
 
@@ -94,7 +94,7 @@ See [Stratum guide][stratum-guide]
 
 #### Install flows to the device
 
-Here we provide a basic script to start TOST(Trellis, ONOS, Stratum Tofino) control
+Here we provide a basic script to start TOST (Trellis, ONOS, Stratum Tofino) control
 plane.
 
 Use `make onos-start` to start the ONOS container, and use `make onos-log` command to
@@ -116,7 +116,7 @@ For INT test, remember to add INT watch list rules via [ONOS web UI](onos-ui).
 To run a test, use following command:
 
 ```bash
-./run-test.sh --server-addr [server address] --trex-config [trex-config] test-name ...
+./run-test.sh --server-addr [todo] --trex-config trex-configs/4-ports-with-l2.yaml port_shaping_rate
 ```
 
 The `run-test.sh` script will start a base container which includes all necessary
