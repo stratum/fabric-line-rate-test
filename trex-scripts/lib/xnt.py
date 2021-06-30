@@ -242,7 +242,7 @@ def analysis_report_pcap(pcap_file: str, total_flows_from_trace: int = 0) -> Non
             inet_aton(internal_ip.dst),
             int.to_bytes(internal_ip.proto, 1, "big"),
             int.to_bytes(internal_l4.sport, 2, "big"),
-            int.to_bytes(internal_l4.dport, 2, "big")
+            int.to_bytes(internal_l4.dport, 2, "big"),
         )
 
         if five_tuple in five_tuple_to_prev_report_time:
