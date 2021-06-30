@@ -5,7 +5,7 @@ version: "3"
 
 services:
   tost:
-    image: registry.aetherproject.org/tost/tost:stable-2021-02-08
+    image: registry.aetherproject.org/tost/tost:master
     hostname: tost
     container_name: tost
     ports:
