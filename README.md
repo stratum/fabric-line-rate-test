@@ -85,7 +85,7 @@ cd [trex root]/scripts
 sudo ./trex_daemon_server start[-live]
 ```
 
-Make sure the Trex service ports (4500, 4501, 4507, and 8090) are accessable from
+Make sure the Trex service ports (4500, 4501, 4507, and 8090) are accessible from
 the machine which runs test scripts.
 
 #### Set up a Stratum device

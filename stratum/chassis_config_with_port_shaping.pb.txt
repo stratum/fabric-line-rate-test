@@ -3,13 +3,13 @@
 
 description: "Chassis Config for Menlo PDP 32QS"
 chassis {
-platform: PLT_GENERIC_BAREFOOT_TOFINO
-name: "Edgecore Wedge100BF-32qs"
+  platform: PLT_GENERIC_BAREFOOT_TOFINO
+  name: "Edgecore Wedge100BF-32qs"
 }
 nodes {
-id: 1
-slot: 1
-index: 1
+  id: 1
+  slot: 1
+  index: 1
 }
 vendor_config {
   tofino_config {
@@ -17,17 +17,50 @@ vendor_config {
       key: 1
       value {
         per_port_shaping_configs {
-          key:30
+          key: 27
           value {
             byte_shaping {
-              max_rate_bps: 1000000000 # 1Gbps
-              max_burst_bytes: 160000 # 2x jumbo frame
+              rate_bps: 1000000000 # 1Gbps
+              burst_bytes: 160000 # 2x jumbo frame
+            }
+          }
+        }
+        per_port_shaping_configs {
+          key: 28
+          value {
+            byte_shaping {
+              rate_bps: 1000000000 # 1Gbps
+              burst_bytes: 160000 # 2x jumbo frame
             }
           }
         }
       }
     }
   }
+}
+singleton_ports {
+  id: 27
+  name: "27/0"
+  slot: 1
+  port: 27
+  channel: 1
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+  }
+  node: 1
+}
+singleton_ports {
+  id: 28
+  name: "28/0"
+  slot: 1
+  port: 28
+  channel: 1
+  speed_bps: 40000000000
+  config_params {
+    admin_state: ADMIN_STATE_ENABLED
+  }
+  node: 1
 }
 singleton_ports {
   id: 29
