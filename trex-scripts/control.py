@@ -204,7 +204,7 @@ def main() -> int:
         try:
             logging.info("Connecting to Trex server...")
             trex_client.connect()
-            logging.info("Acquaring ports...")
+            logging.info("Acquiring ports...")
             trex_client.acquire()
             logging.info("Resetting and clearing port...")
             trex_client.reset()  # Resets configs from all ports

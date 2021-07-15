@@ -27,11 +27,11 @@ while (( "$#" )); do
   esac
 done
 
-docker run --rm \
+docker run --rm -it \
            -v "${DIR}/trex-scripts:/workspace/trex-scripts" \
            -v "${DIR}/tools:/workspace/tools" \
            -v "${DIR}/tmp:/tmp" \
-           -w /workspace \
+           -w /workspace/trex-scripts \
            --mount "type=bind,source=$PWD/entrypoint.sh,target=/entrypoint.sh" \
            --entrypoint /entrypoint.sh \
            "${IMAGE}" \
